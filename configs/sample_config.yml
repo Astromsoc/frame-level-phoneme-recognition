@@ -1,0 +1,47 @@
+# sample configuration file
+
+# data loading
+PHONEME_TXT_FILEPATH: "./src/phonemes.txt"
+
+TRAIN_DATA_DIR: "data/train-clean-100" 
+DEV_DATA_DIR: "data/dev-clean" 
+
+
+# configurables
+context_len: 10
+
+model:
+  first_layer_activation: "relu"
+  linear:
+    - 512
+    - 75
+    - 256
+    - 45
+  activation:
+    - "relu"
+    - "relu"
+    - "relu"
+    - "relu"
+  dropout:
+    - 0.1
+    - 0.1
+    - 0
+    - 0.1
+  batchnorm:
+    - true
+    - true
+    - false
+    - false
+  init: "xavier"
+
+optimizer:
+  name: Adam
+  configs:
+    lr: 1.0e-3
+
+training:
+  epochs: 5
+  batch_size: 2048
+
+inference:
+  batch_size: 2048
