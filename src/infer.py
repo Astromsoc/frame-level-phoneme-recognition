@@ -25,7 +25,9 @@ def main(args):
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=configs['inference']['batch_size'],
-        shuffle=False
+        shuffle=False,
+        num_workers=4,
+        pin_memory=True
     ) 
 
     # calculate input dimension & model linear list
@@ -84,13 +86,13 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
-        default='checkpoints/run-vital-microwave-6/best_dev_accu.pt',
+        default='checkpoints/run-swept-dawn-17/best_dev_loss.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(
         '--test-data-dir', 
         type=str, 
-        default='test-clean',
+        default='data/test-clean',
         help="Directory of the test subset."
     )
     args = parser.parse_args()

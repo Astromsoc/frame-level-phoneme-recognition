@@ -6,6 +6,7 @@ import sys
 import yaml
 import torch
 import wandb
+import pickle
 import argparse
 
 from src.utils import *
@@ -21,13 +22,15 @@ def main(args):
         'mps' if torch.backends.mps.is_available() else
         'cpu'
     )
-    print(f"\nCurrently running on [{device}]...\n")
 
     # init wandb
     wandb.init(
         project='785hw1',
         entity='astromsoc'
     )
+    # save the final best models to a folder w/ the current run name by wandb
+    folder = f"checkpoints/run-{wandb.run.name}"
+    os.makedirs(folder, exist_ok=True)
 
     # load phoeneme dictionary
     phoneme_dict = load_phoneme_dict(configs['PHONEME_TXT_FILEPATH'])
@@ -48,13 +51,22 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=configs['training']['batch_size'],
-        shuffle=True
+        num_workers=4,
+        shuffle=True,
+        pin_memory=True
     )
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
         batch_size=configs['training']['batch_size'],
-        shuffle=True
+        num_workers=4,
+        shuffle=True,
+        pin_memory=True
     )
+
+    # basic information
+    print(f"\nCurrently running on [{device}]...\n")
+    print(f"There are [{len(train_loader)}] batches in training set and " + 
+          f"[{len(dev_loader)}] batches for evaluation.\n\n")
 
     # load model configs
     input_dim = (2 * configs['context_len'] + 1) * dev_dataset.num_features
@@ -197,6 +209,7 @@ def main(args):
                     best_dev_loss['optimizer_state_dict'] = optimizer.state_dict().copy()
                     best_dev_loss['train_loss'] = train_loss_this_batch
                     best_dev_loss['train_accu'] = train_accu_this_batch
+                    torch.save(best_dev_loss, f'{folder}/best_dev_loss.pt')
 
                 if dev_accu_history[epoch][-1] > best_dev_accu['dev_accu']:
                     best_dev_accu['epoch'] = epoch
@@ -207,6 +220,7 @@ def main(args):
                     best_dev_accu['optimizer_state_dict'] = optimizer.state_dict().copy()
                     best_dev_accu['train_loss'] = train_loss_this_batch
                     best_dev_accu['train_accu'] = train_accu_this_batch
+                    torch.save(best_dev_accu, f'{folder}/best_dev_accu.pt')
 
             # print loss
             sys.stdout.write("\r" +
@@ -216,16 +230,17 @@ def main(args):
                 f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else 'N/A'):.6f} | " + 
                 f"dev_accu = {(dev_accu_history[epoch][-1] if dev_accu_history[epoch] * 100 else 'N/A'):.4f}%")
             sys.stdout.flush()
-
+            
         train_loss_history[epoch] = train_loss_this_epoch / train_count
         train_accu_history[epoch] = train_accu_this_epoch / train_count
 
-    # save the final best models to a folder w/ the current run name by wandb
-    folder = f"checkpoints/run-{wandb.run.name}"
-    os.makedirs(folder, exist_ok=True)
-    torch.save(best_dev_loss, f'{folder}/best_dev_loss.pt')
-    torch.save(best_dev_accu, f'{folder}/best_dev_accu.pt')
-
+    # save the loss history to log file
+    pickle.dump({
+        'train_loss': train_loss_history,
+        'train_accu': train_accu_history,
+        'dev_loss': dev_loss_history,
+        'dev_accu': dev_accu_history
+    }, open(f'{folder}/logs.pkl', 'wb'))
 
 
 if __name__ == '__main__':
