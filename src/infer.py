@@ -60,18 +60,22 @@ def main(args):
     pred_count = 0
     # start inference
     model.eval()
-    with open(output_filepath, 'w') as fw:
+    # write to output file as predicting
+    with open(output_filepath, 'a') as fw:
+        # turn off the grad updates
         with torch.no_grad():
             for x in tqdm(test_dataloader):
+                # take inputs to the device
                 x = x.to(device)
                 y_raws = model(x)
+                # obtain the predicted phoneme index
                 y_preds = torch.argmax(y_raws, dim=1)
+                # write to output file using given format
                 for yp in y_preds:
                     fw.write(f"{pred_count} {yp}\n")
                     pred_count += 1
 
         
-
 
 if __name__ == '__main__':
 

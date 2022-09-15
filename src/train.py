@@ -109,11 +109,15 @@ def main(args):
         'configs': configs
     }
 
-     # train the model
+    # number of batches before a full-dev evaluation
+    dev_eval_batches = int(np.ceil(
+        len(train_loader) / configs['training']['eval_per_epoch']
+    ))
+
+    # train the model
     for epoch in range(num_epochs):
 
         print(f"\n\nRunning Epoch #{epoch + 1}...\n")
-
         # record loss & accuracy
         train_count = 0
         train_loss_this_epoch = 0
@@ -147,66 +151,71 @@ def main(args):
             # obtain the avg stats for training in this batch
             train_accu_this_batch /= train_count_this_batch
 
-            # use the updated model to evaluate on dev set
-            dev_count = 0
-            dev_loss_this_batch = 0
-            dev_accu_this_batch = 0
+            wandb.log({
+                "train_loss_per_batch": train_loss_this_batch,
+                "train_accu_per_batch": train_accu_this_batch 
+            })
 
-            model.eval()
-            with torch.no_grad():
-                for x_and_y in dev_loader:
-                    x, y = x_and_y[0].to(device), x_and_y[1].to(device)
-                    y_pred = model(x)
-                    loss = criterion(y_pred, y)
-                    dev_loss_this_batch += loss.item() * y.shape[0]
-                    dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
-                    dev_count += y.shape[0]
-            # obtain avg metrics
-            dev_loss_this_batch /= dev_count
-            dev_accu_this_batch /= dev_count
-            # add to epoch stats
-            dev_loss_history[epoch].append(dev_loss_this_batch)
-            dev_accu_history[epoch].append(dev_accu_this_batch)
-            
+            # run evaluation on dev set
+            if (batch % dev_eval_batches == 0 or 
+               (batch == len(train_loader) - 1 and batch % dev_eval_batches != 0)):
+
+                # use the updated model to evaluate on dev set
+                dev_count = 0
+                dev_loss_this_batch = 0
+                dev_accu_this_batch = 0
+
+                model.eval()
+                with torch.no_grad():
+                    for x_and_y in dev_loader:
+                        x, y = x_and_y[0].to(device), x_and_y[1].to(device)
+                        y_pred = model(x)
+                        loss = criterion(y_pred, y)
+                        dev_loss_this_batch += loss.item() * y.shape[0]
+                        dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
+                        dev_count += y.shape[0]
+                # obtain avg metrics
+                dev_loss_this_batch /= dev_count
+                dev_accu_this_batch /= dev_count
+                # add to epoch stats
+                dev_loss_history[epoch].append(dev_loss_this_batch)
+                dev_accu_history[epoch].append(dev_accu_this_batch)
+
+                # log to wandb
+                wandb.log({
+                    "dev_loss_per_batch": dev_loss_history[epoch][-1],
+                    "dev_accu_per_batch": dev_accu_history[epoch][-1]
+                })
+
+                # save the best model(s)
+                if dev_loss_history[epoch][-1] < best_dev_loss['dev_loss']:
+                    best_dev_loss['epoch'] = epoch
+                    best_dev_loss['batch'] = batch
+                    best_dev_loss['dev_loss'] = dev_loss_history[epoch][-1]
+                    best_dev_loss['dev_accu'] = dev_accu_history[epoch][-1]
+                    best_dev_loss['model_state_dict'] = model.state_dict().copy()
+                    best_dev_loss['optimizer_state_dict'] = optimizer.state_dict().copy()
+                    best_dev_loss['train_loss'] = train_loss_this_batch
+                    best_dev_loss['train_accu'] = train_accu_this_batch
+
+                if dev_accu_history[epoch][-1] > best_dev_accu['dev_accu']:
+                    best_dev_accu['epoch'] = epoch
+                    best_dev_accu['batch'] = batch
+                    best_dev_accu['dev_loss'] = dev_loss_history[epoch][-1]
+                    best_dev_accu['dev_accu'] = dev_accu_history[epoch][-1]
+                    best_dev_accu['model_state_dict'] = model.state_dict().copy()
+                    best_dev_accu['optimizer_state_dict'] = optimizer.state_dict().copy()
+                    best_dev_accu['train_loss'] = train_loss_this_batch
+                    best_dev_accu['train_accu'] = train_accu_this_batch
+
             # print loss
-            sys.stdout.write(
-                "\r" +
+            sys.stdout.write("\r" +
                 f"Epoch #{epoch + 1: <3} | Batch #{batch + 1: <5}: " +
                 f"train_loss = {train_loss_this_batch:.6f} | " + 
                 f"train_accu = {train_accu_this_batch * 100:.4f}% || " +
-                f"dev_loss = {dev_loss_history[epoch][-1]:.6f} | " + 
-                f"dev_accu = {dev_accu_history[epoch][-1] * 100:.4f}%"
-            )
+                f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else 'N/A'):.6f} | " + 
+                f"dev_accu = {(dev_accu_history[epoch][-1] if dev_accu_history[epoch] * 100 else 'N/A'):.4f}%")
             sys.stdout.flush()
-
-            # log to wandb
-            wandb.log({
-                "train_loss_per_batch": train_loss_this_batch,
-                "train_accu_per_batch": train_accu_this_batch,
-                "dev_loss_per_batch": dev_loss_history[epoch][-1],
-                "dev_accu_per_batch": dev_accu_history[epoch][-1]
-            })
-
-            # save the best model(s)
-            if dev_loss_history[epoch][-1] < best_dev_loss['dev_loss']:
-                best_dev_loss['epoch'] = epoch
-                best_dev_loss['batch'] = batch
-                best_dev_loss['dev_loss'] = dev_loss_history[epoch][-1]
-                best_dev_loss['dev_accu'] = dev_accu_history[epoch][-1]
-                best_dev_loss['model_state_dict'] = model.state_dict().copy()
-                best_dev_loss['optimizer_state_dict'] = optimizer.state_dict().copy()
-                best_dev_loss['train_loss'] = train_loss_this_batch
-                best_dev_loss['train_accu'] = train_accu_this_batch
-
-            if dev_accu_history[epoch][-1] > best_dev_accu['dev_accu']:
-                best_dev_accu['epoch'] = epoch
-                best_dev_accu['batch'] = batch
-                best_dev_accu['dev_loss'] = dev_loss_history[epoch][-1]
-                best_dev_accu['dev_accu'] = dev_accu_history[epoch][-1]
-                best_dev_accu['model_state_dict'] = model.state_dict().copy()
-                best_dev_accu['optimizer_state_dict'] = optimizer.state_dict().copy()
-                best_dev_accu['train_loss'] = train_loss_this_batch
-                best_dev_accu['train_accu'] = train_accu_this_batch
 
         train_loss_history[epoch] = train_loss_this_epoch / train_count
         train_accu_history[epoch] = train_accu_this_epoch / train_count
@@ -216,7 +225,6 @@ def main(args):
     os.makedirs(folder, exist_ok=True)
     torch.save(best_dev_loss, f'{folder}/best_dev_loss.pt')
     torch.save(best_dev_accu, f'{folder}/best_dev_accu.pt')
-
 
 
 
