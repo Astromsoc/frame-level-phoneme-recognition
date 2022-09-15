@@ -8,17 +8,15 @@ DEV_DATA_DIR: "data/dev-clean"
 
 
 # configurables
-context_len: 10
+context_len: 7
 
 model:
   first_layer_activation: "relu"
   linear:
-    - 512
     - 1024
     - 512
-    - 256
+    - 512
   activation:
-    - "relu"
     - "relu"
     - "relu"
     - "relu"
@@ -26,12 +24,10 @@ model:
     - 0.1
     - 0.1
     - 0.1
-    - 0.1
   batchnorm:
-    - true
-    - true
     - false
     - false
+    - true
   init: "xavier"
 
 optimizer:
@@ -40,9 +36,9 @@ optimizer:
     lr: 1.0e-3
 
 training:
-  epochs: 3
-  batch_size: 2048
+  epochs: 2
+  batch_size: 8192
   eval_per_epoch: 3
 
 inference:
-  batch_size: 2048
+  batch_size: 8192
