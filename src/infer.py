@@ -56,7 +56,7 @@ def main(args):
 
     # build output filepath under the checkpoint directory
     output_filepath = args.checkpoint_filepath.replace(
-        '.pt', '_output.txt'
+        '.pt', '_output.csv'
     )
 
     pred_count = 0
@@ -64,6 +64,7 @@ def main(args):
     model.eval()
     # write to output file as predicting
     with open(output_filepath, 'a') as fw:
+        fw.write("id,label\n")
         # turn off the grad updates
         with torch.no_grad():
             for x in tqdm(test_dataloader):
@@ -74,7 +75,7 @@ def main(args):
                 y_preds = torch.argmax(y_raws, dim=1)
                 # write to output file using given format
                 for yp in y_preds:
-                    fw.write(f"{pred_count} {yp}\n")
+                    fw.write(f"{pred_count},{yp}\n")
                     pred_count += 1
 
         
@@ -86,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
-        default='checkpoints/run-swept-dawn-17/best_dev_loss.pt',
+        default='checkpoints/run-balmy-haze-22/best_dev_accu.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(

@@ -13,7 +13,8 @@ class MLP(torch.nn.Module):
         'relu': nn.ReLU(),
         'tanh': nn.Tanh(),
         'sigmoid': nn.Sigmoid(),
-        'softmax': nn.Softmax()
+        'softmax': nn.Softmax(),
+        'softplus': nn.Softplus()
     }
     output_dim = 40
 
@@ -60,6 +61,10 @@ class MLP(torch.nn.Module):
                     layers[i - 1], layers[i] = layers[i], layers[i - 1]
         # build the model accordingly
         self.streamline = nn.Sequential(*layers)
+
+        # save the parameter size
+        self.trainable_param_count = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        self.total_param_count = sum(p.numel() for p in self.parameters())
         
 
     def forward(self, x):

@@ -7,6 +7,7 @@ import os
 import torch
 import numpy as np
 from tqdm import tqdm
+from collections import Counter
 
 
 
@@ -20,7 +21,8 @@ class AudioDataset(torch.utils.data.Dataset):
         self, 
         data_directory: str,
         phoneme_dict: dict,
-        context_len: int = None
+        context_len: int=None,
+        show_label_stats: bool=False
     ):
         # load data from the given data directory
         # ASSUMING that a 'transcript' and an 'mfcc' sub folder exist
@@ -38,6 +40,9 @@ class AudioDataset(torch.utils.data.Dataset):
         self.context_len = context_len if context_len else 0
         self.skip_interval = 2 * self.context_len + 1
 
+        # initialize counters for basic stats on inputs
+        self.label_counter = Counter()
+
         # load data and build index maps
         for i, basename in tqdm(enumerate(os.listdir(f"{self.data_directory}/mfcc"))):
 
@@ -49,6 +54,7 @@ class AudioDataset(torch.utils.data.Dataset):
                 os.path.join(f"{self.data_directory}/transcript", basename)
             ))[1:-1]
             # trim the <sos> and <eos> tokens
+            self.label_counter.update(Counter(transcript))
 
             # check each input pair is aligned
             assert mfcc.shape[0] == transcript.shape[0]  
@@ -71,6 +77,11 @@ class AudioDataset(torch.utils.data.Dataset):
         assert len(self.features) == len(self.labels)
         # entire len: count of [valid] frames, suggested by index pairs
         self.dataset_size = len(self.index_map)
+
+        # show the result of counter stats
+        if show_label_stats:
+            for k, v in self.label_counter.items():
+                print(f"{k:>4}: {v}")
 
 
     def __len__(self):

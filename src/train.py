@@ -51,14 +51,14 @@ def main(args):
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=configs['training']['batch_size'],
-        num_workers=4,
+        num_workers=configs['device_num_workers'],
         shuffle=True,
         pin_memory=True
     )
     dev_loader = torch.utils.data.DataLoader(
         dev_dataset,
         batch_size=configs['training']['batch_size'],
-        num_workers=4,
+        num_workers=configs['device_num_workers'],
         shuffle=True,
         pin_memory=True
     )
@@ -79,6 +79,10 @@ def main(args):
         dropout_list=configs['model']['dropout'],
         batchnorm_list=configs['model']['batchnorm'],
     )
+    # show model structure & number of parameters
+    print(f"\nModel Architecture:\n{model}\n")
+    print(f"**PARAMETERS**: [{model.trainable_param_count}] trainable " +
+          f"out of [{model.total_param_count}] total.")
     # initialize model weights
     model.apply(lambda l: model_weights_init(l, configs['model']['init']))
 
@@ -169,8 +173,8 @@ def main(args):
             })
 
             # run evaluation on dev set
-            if (batch % dev_eval_batches == 0 or 
-               (batch == len(train_loader) - 1 and batch % dev_eval_batches != 0)):
+            if ((batch + 1) % dev_eval_batches == 0 or 
+               ((batch + 1) == len(train_loader) and (batch + 1) % dev_eval_batches != 0)):
 
                 # use the updated model to evaluate on dev set
                 dev_count = 0
@@ -221,14 +225,17 @@ def main(args):
                     best_dev_accu['train_loss'] = train_loss_this_batch
                     best_dev_accu['train_accu'] = train_accu_this_batch
                     torch.save(best_dev_accu, f'{folder}/best_dev_accu.pt')
+                
+                # turn back to model training mode
+                model.train()
 
             # print loss
             sys.stdout.write("\r" +
                 f"Epoch #{epoch + 1: <3} | Batch #{batch + 1: <5}: " +
                 f"train_loss = {train_loss_this_batch:.6f} | " + 
                 f"train_accu = {train_accu_this_batch * 100:.4f}% || " +
-                f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else 'N/A'):.6f} | " + 
-                f"dev_accu = {(dev_accu_history[epoch][-1] if dev_accu_history[epoch] * 100 else 'N/A'):.4f}%")
+                f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else -1):.6f} | " + 
+                f"dev_accu = {(dev_accu_history[epoch][-1] if dev_accu_history[epoch] * 100 else -1):.4f}%")
             sys.stdout.flush()
             
         train_loss_history[epoch] = train_loss_this_epoch / train_count
