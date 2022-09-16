@@ -8,37 +8,38 @@ DEV_DATA_DIR: "data/dev-clean"
 
 
 # configurables
-context_len: 7
+context_len: 200
+device_num_workers: 4
 
 model:
-  first_layer_activation: "relu"
+  first_layer_activation: "softplus"
   linear:
     - 1024
-    - 512
+    - 1024
     - 512
   activation:
-    - "relu"
-    - "relu"
+    - "softplus"
+    - "softplus"
     - "relu"
   dropout:
-    - 0.1
-    - 0.1
-    - 0.1
+    - 0.05
+    - 0.08
+    - 0.10
   batchnorm:
-    - false
-    - false
     - true
-  init: "xavier"
+    - true
+    - true
+  init: "kaiming"
 
 optimizer:
-  name: Adam
+  name: AdamW
   configs:
-    lr: 1.0e-3
+    lr: 1.2e-3
 
 training:
-  epochs: 2
-  batch_size: 8192
+  epochs: 3
+  batch_size: 8196
   eval_per_epoch: 3
 
 inference:
-  batch_size: 8192
+  batch_size: 8196
