@@ -1,22 +1,22 @@
 # sample configuration file
 
-# data loading
+# data loading parameters -- stay unchanged for one fixed mission
 PHONEME_TXT_FILEPATH: "data/phonemes.txt"
-
 TRAIN_DATA_DIR: "data/train-clean-100" 
 DEV_DATA_DIR: "data/dev-clean" 
 
 
 # configurables
-context_len: 200
+context_len: 20
 device_num_workers: 4
 
 model:
+  add_squares: true
   first_layer_activation: "softplus"
   linear:
-    - 1024
-    - 1024
-    - 512
+    - 256
+    - 128
+    - 128
   activation:
     - "softplus"
     - "softplus"
