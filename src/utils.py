@@ -38,7 +38,7 @@ class AudioDataset(torch.utils.data.Dataset):
 
         # use context length to concatenate the results
         self.context_len = context_len if context_len else 0
-        self.skip_interval = 2 * self.context_len + 1
+        self.window_len = 2 * self.context_len + 1
 
         # initialize counters for basic stats on inputs
         self.label_counter = Counter()
@@ -52,8 +52,8 @@ class AudioDataset(torch.utils.data.Dataset):
             # assuming the paired files feature the same basename (and file suffix)
             transcript = np.vectorize(self.phoneme_dict.get)(np.load(
                 os.path.join(f"{self.data_directory}/transcript", basename)
-            ))[1:-1]
-            # trim the <sos> and <eos> tokens
+            ))[1:-1] # trim the <sos> and <eos> tokens
+            # update the counts by phoneme index
             self.label_counter.update(Counter(transcript))
 
             # check each input pair is aligned
@@ -91,7 +91,7 @@ class AudioDataset(torch.utils.data.Dataset):
     def __getitem__(self, index):
         i, j = self.index_map[index]
         return (
-            self.features[i][j: j + self.skip_interval].flatten(),
+            self.features[i][j: j + self.window_len],
             self.labels[i][j]
         )
 

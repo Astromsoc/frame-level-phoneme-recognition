@@ -78,6 +78,7 @@ def main(args):
         activation_list=configs['model']['activation'],
         dropout_list=configs['model']['dropout'],
         batchnorm_list=configs['model']['batchnorm'],
+        add_squares=configs['model']['add_squares']
     )
     # show model structure & number of parameters
     print(f"\nModel Architecture:\n{model}\n")
