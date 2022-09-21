@@ -87,7 +87,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
-        default='checkpoints/run-balmy-haze-22/best_dev_accu.pt',
+        default='checkpoints/run-silver-snowball-33/best_dev_loss.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(

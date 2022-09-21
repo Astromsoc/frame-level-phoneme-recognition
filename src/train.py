@@ -15,6 +15,7 @@ from src.models import MLP
 
 
 def main(args):
+
     # load configs & device info
     configs = yaml.safe_load(open(args.config_yaml_filepath, 'r'))
     device = (
@@ -22,6 +23,14 @@ def main(args):
         'mps' if torch.backends.mps.is_available() else
         'cpu'
     )
+
+    # obtain random seed
+    SEED = (
+        configs['training']['seed'] if 'seed' in configs['training'] 
+        else 11785
+    )
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
 
     # init wandb
     wandb.init(
@@ -84,8 +93,16 @@ def main(args):
     print(f"\nModel Architecture:\n{model}\n")
     print(f"**PARAMETERS**: [{model.trainable_param_count}] trainable " +
           f"out of [{model.total_param_count}] total.")
-    # initialize model weights
-    model.apply(lambda l: model_weights_init(l, configs['model']['init']))
+
+    # if there a model checkpoint exists: load from previous checkpoint
+    if 'init_checkpoint' in configs['training']:
+        checkpoint = torch.load(configs['training']['init_checkpoint'])
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print("\nModel checkpoint successfully loaded " +
+              f"from [{configs['training']['init_checkpoint']}]\n")
+    else:
+        # initialize model weights
+        model.apply(lambda l: model_weights_init(l, configs['model']['init']))
 
     # build the optimizer & loss function
     optimizer = (
@@ -98,6 +115,11 @@ def main(args):
         else torch.optim.RMSProp(model.parameters(), **configs['optimizer']['configs'])
         # default: RMSProp
     )
+    # load from previous check point if exists and asked
+    if configs['training']['load_optimizer_checkpoint']:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print("\nOptimizer checkpoint successfully loaded " +
+              f"from [{configs['training']['init_checkpoint']}]\n")
     criterion = torch.nn.CrossEntropyLoss()
 
     # log hyperparams
@@ -236,7 +258,7 @@ def main(args):
                 f"train_loss = {train_loss_this_batch:.6f} | " + 
                 f"train_accu = {train_accu_this_batch * 100:.4f}% || " +
                 f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else -1):.6f} | " + 
-                f"dev_accu = {(dev_accu_history[epoch][-1] if dev_accu_history[epoch] * 100 else -1):.4f}%")
+                f"dev_accu = {((dev_accu_history[epoch][-1] if dev_accu_history[epoch] else -1) * 100):.4f}%")
             sys.stdout.flush()
             
         train_loss_history[epoch] = train_loss_this_epoch / train_count
