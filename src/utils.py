@@ -22,6 +22,7 @@ class AudioDataset(torch.utils.data.Dataset):
         data_directory: str,
         phoneme_dict: dict,
         context_len: int=None,
+        add_powers: int=0,
         show_label_stats: bool=False
     ):
         # load data from the given data directory
@@ -29,6 +30,9 @@ class AudioDataset(torch.utils.data.Dataset):
         self.data_directory = data_directory
         # load the phoneme dictionary for transcript mapping
         self.phoneme_dict = phoneme_dict
+        
+        # record the pow count if needed
+        self.add_powers = add_powers if add_powers >= 2 else 0
 
         # save the (preprocessed) data into 2 list attributes
         self.features = list()
@@ -69,8 +73,14 @@ class AudioDataset(torch.utils.data.Dataset):
             if hasattr(self, 'context_padding'):
                 mfcc = np.vstack((self.context_padding, mfcc, self.context_padding))
                 assert mfcc.shape[0] == 2 * self.context_len + transcript.shape[0]
+            # convert to torch tensor
+            mfcc = torch.tensor(mfcc, dtype=torch.float32)
+            # add powers to mfcc if specified
+            if self.add_powers:
+                mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
             
-            self.features.append(torch.tensor(mfcc, dtype=torch.float32))
+            # add processed results to internal data storage
+            self.features.append(mfcc)
             self.labels.append(torch.tensor(transcript, dtype=torch.long))
 
         # check size agreement
@@ -108,11 +118,15 @@ class AudioDatasetInference(torch.utils.data.Dataset):
     def __init__(
         self, 
         data_directory: str,
-        context_len: int = None
+        context_len: int=None,
+        add_powers: int=0
     ):
         # load data from the given data directory
         # ASSUMING that a 'transcript' and an 'mfcc' sub folder exist
         self.data_directory = data_directory
+
+        # record the pow count if needed
+        self.add_powers = add_powers if add_powers >= 2 else 0
 
         # save the (preprocessed) data into 2 list attributes
         self.features = list()
@@ -138,7 +152,12 @@ class AudioDatasetInference(torch.utils.data.Dataset):
             # add context padding if required
             if hasattr(self, 'context_padding'):
                 mfcc = np.vstack((self.context_padding, mfcc, self.context_padding))
-            self.features.append(torch.tensor(mfcc, dtype=torch.float32))
+            # convert to torch tensor
+            mfcc = torch.tensor(mfcc, dtype=torch.float32)
+            # add powers to mfcc if specified
+            if self.add_powers:
+                mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
+            self.features.append(mfcc)
 
         # entire len: count of [valid] frames, suggested by index pairs
         self.dataset_size = len(self.index_map)
@@ -187,25 +206,3 @@ def model_weights_init(
             torch.nn.init.zeros_(layer.weight)
         # init the bias from 0: avoid disturbance / divergence
         torch.nn.init.zeros_(layer.bias)
-
-
-# if __name__ == '__main__':
-
-#     phoneme_dict = load_phoneme_dict('./src/phonemes.txt')
-
-#     train_dataset = AudioDataset(
-#         data_directory='./tiny/train-clean-100',
-#         phoneme_dict=phoneme_dict,
-#         context_len=2
-#     )
-
-#     dev_dataset = AudioDataset(
-#         data_directory='./tiny/dev-clean',
-#         phoneme_dict=phoneme_dict,
-#         context_len=2
-#     )
-
-#     print(dev_dataset[0][0].shape)
-#     print(dev_dataset[765])
-#     print(dev_dataset[766])
-

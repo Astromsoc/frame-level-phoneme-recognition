@@ -20,13 +20,14 @@ def main(args):
     # load test dataset
     test_dataset = AudioDatasetInference(
         data_directory=args.test_data_dir,
-        context_len=configs['context_len']
+        context_len=configs['context_len'],
+        add_powers=configs['model']['add_powers']
     )
     test_dataloader = torch.utils.data.DataLoader(
         test_dataset,
         batch_size=configs['inference']['batch_size'],
         shuffle=False,
-        num_workers=4,
+        num_workers=configs['device_num_workers'],
         pin_memory=True
     ) 
 
@@ -62,6 +63,7 @@ def main(args):
     pred_count = 0
     # start inference
     model.eval()
+    model.is_training = False
     # write to output file as predicting
     with open(output_filepath, 'a') as fw:
         fw.write("id,label\n")
@@ -87,7 +89,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
-        default='checkpoints/run-silver-snowball-33/best_dev_loss.pt',
+        default='checkpoints/run-legendary-darkness-43/best_dev_loss.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(

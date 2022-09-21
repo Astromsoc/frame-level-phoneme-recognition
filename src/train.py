@@ -48,12 +48,14 @@ def main(args):
     train_dataset = AudioDataset(
         data_directory=configs['TRAIN_DATA_DIR'],
         phoneme_dict=phoneme_dict,
-        context_len=configs['context_len']
+        context_len=configs['context_len'],
+        add_powers=configs['model']['add_powers']
     )
     dev_dataset = AudioDataset(
         data_directory=configs['DEV_DATA_DIR'],
         phoneme_dict=phoneme_dict,
-        context_len=configs['context_len']
+        context_len=configs['context_len'],
+        add_powers=configs['model']['add_powers']
     )
 
     # create dataloaders
@@ -79,15 +81,14 @@ def main(args):
 
     # load model configs
     input_dim = (2 * configs['context_len'] + 1) * dev_dataset.num_features
-    linear_list = [input_dim] + configs['model']['linear']
+    linear_list = [input_dim * configs['model']['add_powers']] + configs['model']['linear']
     
     # build model
     model = MLP(
         dim_list=linear_list,
         activation_list=configs['model']['activation'],
         dropout_list=configs['model']['dropout'],
-        batchnorm_list=configs['model']['batchnorm'],
-        add_squares=configs['model']['add_squares']
+        batchnorm_list=configs['model']['batchnorm']
     )
     # show model structure & number of parameters
     print(f"\nModel Architecture:\n{model}\n")
@@ -112,15 +113,25 @@ def main(args):
         if configs['optimizer']['name'] == 'AdamW'
         else torch.optim.SGD(model.parameters(), **configs['optimizer']['configs'])
         if configs['optimizer']['name'] == 'SGD'
+        else torch.optim.Adam(model.parameters(), **configs['optimizer']['configs'])
+        if configs['optimizer']['name'] == 'Adagrad'
         else torch.optim.RMSProp(model.parameters(), **configs['optimizer']['configs'])
         # default: RMSProp
     )
     # load from previous check point if exists and asked
-    if configs['training']['load_optimizer_checkpoint']:
+    if ('load_optimizer_checkpoint' in configs['training']
+        and configs['training']['load_optimizer_checkpoint']):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         print("\nOptimizer checkpoint successfully loaded " +
               f"from [{configs['training']['init_checkpoint']}]\n")
+
+    # load loss function
     criterion = torch.nn.CrossEntropyLoss()
+
+    # load scheduler
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+        optimizer, **configs['scheduler']['configs']
+    ) if 'scheduler' in configs else None
 
     # log hyperparams
     wandb.config = {
@@ -131,6 +142,8 @@ def main(args):
 
     # take model to the device
     model.to(device)
+    # switch to initial training status
+    model.train()
 
     num_epochs = configs['training']['epochs']
     train_loss_history = np.zeros((num_epochs, ))
@@ -163,7 +176,6 @@ def main(args):
         train_accu_this_epoch = 0
 
         # iterate through batches
-        model.train()
         for batch, x_and_y in enumerate(train_loader):
             # clear previous grads
             optimizer.zero_grad()
@@ -175,6 +187,9 @@ def main(args):
             loss.backward()
             # update parameters
             optimizer.step()
+            # update learning rate
+            if scheduler:
+                scheduler.step()
 
             # record per-batch stats
             train_loss_this_batch = loss.item()
@@ -204,7 +219,9 @@ def main(args):
                 dev_loss_this_batch = 0
                 dev_accu_this_batch = 0
 
+                # switch to the evaluation mode
                 model.eval()
+                model.is_training = False
                 with torch.no_grad():
                     for x_and_y in dev_loader:
                         x, y = x_and_y[0].to(device), x_and_y[1].to(device)
@@ -251,14 +268,15 @@ def main(args):
                 
                 # turn back to model training mode
                 model.train()
+                model.is_training = True
 
             # print loss
             sys.stdout.write("\r" +
                 f"Epoch #{epoch + 1: <3} | Batch #{batch + 1: <5}: " +
                 f"train_loss = {train_loss_this_batch:.6f} | " + 
                 f"train_accu = {train_accu_this_batch * 100:.4f}% || " +
-                f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else -1):.6f} | " + 
-                f"dev_accu = {((dev_accu_history[epoch][-1] if dev_accu_history[epoch] else -1) * 100):.4f}%")
+                f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else 0):.6f} | " + 
+                f"dev_accu = {((dev_accu_history[epoch][-1] if dev_accu_history[epoch] else 0) * 100):.4f}%")
             sys.stdout.flush()
             
         train_loss_history[epoch] = train_loss_this_epoch / train_count
