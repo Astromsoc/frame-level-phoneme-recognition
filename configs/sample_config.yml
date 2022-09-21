@@ -7,25 +7,29 @@ DEV_DATA_DIR: "data/dev-clean"
 
 
 # configurables
-context_len: 20
-device_num_workers: 4
+context_len: 50
+device_num_workers: 8
 
 model:
   add_squares: true
   first_layer_activation: "softplus"
   linear:
-    - 256
-    - 128
-    - 128
+    - 2048
+    - 2048
+    - 1024
+    - 1024
   activation:
     - "softplus"
     - "softplus"
-    - "relu"
+    - "softplus"
+    - "softplus"
   dropout:
-    - 0.05
-    - 0.08
-    - 0.10
+    - 0.1
+    - 0.1
+    - 0.1
+    - 0.1
   batchnorm:
+    - true
     - true
     - true
     - true
@@ -34,12 +38,15 @@ model:
 optimizer:
   name: AdamW
   configs:
-    lr: 1.2e-3
+    lr: 1.0e-4
 
 training:
-  epochs: 3
-  batch_size: 8196
-  eval_per_epoch: 3
+  seed: 11785
+  epochs: 10
+  batch_size: 10000
+  eval_per_epoch: 5
+  init_checkpoint: "'[**your-checkpoint-here**]"
+  load_optimizer_checkpoint: false
 
 inference:
-  batch_size: 8196
+  batch_size: 10000
