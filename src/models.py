@@ -14,7 +14,8 @@ class MLP(torch.nn.Module):
         'tanh': nn.Tanh(),
         'sigmoid': nn.Sigmoid(),
         'softmax': nn.Softmax(),
-        'softplus': nn.Softplus()
+        'softplus': nn.Softplus(),
+        'leakyrelu': nn.LeakyReLU()
     }
     output_dim = 40
 
@@ -24,18 +25,13 @@ class MLP(torch.nn.Module):
         activation_list: list,
         dropout_list: list,
         batchnorm_list: list,
-        add_squares: bool = True
+        add_powers: int=0,
+        add_noise: bool=True
     ):
         super(MLP, self).__init__()
 
         # fundamental prerequisite checks
         assert len(dim_list) - 1 == len(activation_list) == len(dropout_list)
-
-        # whether to kernelize inputs with squares
-        self.add_squares = add_squares
-        # double the input dim if squares are added
-        if self.add_squares:
-            dim_list[0] *= 2
 
         # add the unchanged last layer
         dim_list.append(self.output_dim)
@@ -72,11 +68,15 @@ class MLP(torch.nn.Module):
         # compute the parameter size
         self.trainable_param_count = sum(p.numel() for p in self.parameters() if p.requires_grad)
         self.total_param_count = sum(p.numel() for p in self.parameters())
-        
+
+        # record the flag as whether to add noise during training
+        self.add_noise = add_noise
+        self.is_training = True
 
     def forward(self, x):
         # flatten the input
         x = x.view(x.size(0), -1)
-        if self.add_squares:
-            x = torch.hstack((x, torch.square(x)))
+        # add noise during training if specified
+        if self.is_training and self.add_noise:
+            x += torch.randn(x.size(), device=x.device) * 0.001
         return self.streamline(x)
