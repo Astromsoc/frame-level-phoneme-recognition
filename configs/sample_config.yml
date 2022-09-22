@@ -7,7 +7,7 @@ DEV_DATA_DIR: "data/dev-clean"
 
 
 # configurables
-context_len: 40
+context_len: 50
 device_num_workers: 8
 
 model:
@@ -18,19 +18,18 @@ model:
     - 1024
     - 1024
     - 1024
-    - 512
+    - 1024
   activation:
-    - "leakyrelu"
-    - "leakyrelu"
-    - "leakyrelu"
+    - "softplus"
+    - "softplus"
     - "softplus"
     - "softplus"
   dropout:
     - 0.12
     - 0.12
-    - 0.11
-    - 0.11
-    - 0.10
+    - 0.12
+    - 0.12
+    - 0.12
   batchnorm:
     - true
     - true
@@ -40,31 +39,36 @@ model:
   init: "kaiming"
 
 optimizer:
-  name: "AdamW"
+  # choose from:
+  # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
+  name: "adamw"
   configs:
     lr: 1.0e-3
 
 # scheduler: comment the entire section if unwanted
 scheduler:
+  # choose from:
+  # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
+  # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
   name: cosine_annealing_warm_restarts
   configs:
     # since which batch (in total) to warm up
-    T_0: 40000
+    T_0: 500
 
 training:
   seed: 11785
-  epochs: 10
+  epochs: 25
   batch_size: 10000
   # how many evaluations per epoch
   eval_per_epoch: 5
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  add_noise: true
-  # ** the following 2 flags can be commented **
-  # checkpoint for the start of training -- if needed
-  init_checkpoint: "**your-checkpoint-filepath-here**"
-  # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
-  load_optimizer_checkpoint: false
+  noise_level: 0.001
+  # # ** the following 2 flags can be commented **
+  # # checkpoint for the start of training -- if needed
+  # init_checkpoint: "**your-checkpoint-filepath-here**"
+  # # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
+  # load_optimizer_checkpoint: false
 
 inference:
   batch_size: 10000
