@@ -25,8 +25,7 @@ class MLP(torch.nn.Module):
         activation_list: list,
         dropout_list: list,
         batchnorm_list: list,
-        add_powers: int=0,
-        add_noise: bool=True
+        noise_level: float=0.0
     ):
         super(MLP, self).__init__()
 
@@ -70,13 +69,13 @@ class MLP(torch.nn.Module):
         self.total_param_count = sum(p.numel() for p in self.parameters())
 
         # record the flag as whether to add noise during training
-        self.add_noise = add_noise
+        self.noise_level = noise_level
         self.is_training = True
 
     def forward(self, x):
         # flatten the input
         x = x.view(x.size(0), -1)
         # add noise during training if specified
-        if self.is_training and self.add_noise:
-            x += torch.randn(x.size(), device=x.device) * 0.001
+        if self.is_training and self.noise_level:
+            x += torch.randn(x.size(), device=x.device) * self.noise_level
         return self.streamline(x)

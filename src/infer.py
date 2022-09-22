@@ -12,6 +12,15 @@ from src.models import MLP
 
 
 def main(args):
+
+    # check  device
+    device = (
+        'cuda' if torch.cuda.is_available() else
+        'mps' if torch.backends.mps.is_available() else
+        'cpu'
+    )
+    print(f"\nNow running on [{device}]...\n")
+
     # load the torch checkpoint
     checkpoint = torch.load(args.checkpoint_filepath)
     # load relevant configs
@@ -33,6 +42,8 @@ def main(args):
 
     # calculate input dimension & model linear list
     input_dim = (2 * configs['context_len'] + 1) * test_dataset.num_features
+    if configs['model']['add_powers'] >= 2:
+        input_dim *= configs['model']['add_powers']
     linear_list = [input_dim] + configs['model']['linear']
     
     # build model
@@ -44,16 +55,8 @@ def main(args):
     )
     # load model state dict
     model.load_state_dict(checkpoint['model_state_dict'])
-    
-    # check model device
-    device = (
-        'cuda' if torch.cuda.is_available() else
-        'mps' if torch.backends.mps.is_available() else
-        'cpu'
-    )
-    print(f"\nNow running on [{device}]...\n")
+    # move model to device
     model.to(device)
-
 
     # build output filepath under the checkpoint directory
     output_filepath = args.checkpoint_filepath.replace(
@@ -89,7 +92,6 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
-        default='checkpoints/run-legendary-darkness-43/best_dev_loss.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(

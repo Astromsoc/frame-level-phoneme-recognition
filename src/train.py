@@ -2,6 +2,7 @@
     Training driver script
 """
 
+from re import M
 import sys
 import yaml
 import torch
@@ -13,6 +14,8 @@ from src.utils import *
 from src.models import MLP
 
 
+# whether to connect to wandb and log the process
+OFFICIAL_TRAINING_MODE = True
 
 def main(args):
 
@@ -32,14 +35,18 @@ def main(args):
     np.random.seed(SEED)
     torch.manual_seed(SEED)
 
-    # init wandb
-    wandb.init(
-        project='785hw1',
-        entity='astromsoc'
-    )
-    # save the final best models to a folder w/ the current run name by wandb
-    folder = f"checkpoints/run-{wandb.run.name}"
-    os.makedirs(folder, exist_ok=True)
+    # init wandb for formal training
+    if OFFICIAL_TRAINING_MODE:
+        wandb.init(
+            project='785hw1',
+            entity='astromsoc'
+        )
+        # save the final best models to a folder w/ the current run name by wandb
+        folder = f"checkpoints/run-{wandb.run.name}"
+        os.makedirs(folder, exist_ok=True)
+        # copy the configs file to target output folder for more direct access
+        os.system(f"cp {args.config_yaml_filepath} {folder}/configs.yml")
+        # NOTE: the configs are also saved into checkpoint files for faster internal access
 
     # load phoeneme dictionary
     phoneme_dict = load_phoneme_dict(configs['PHONEME_TXT_FILEPATH'])
@@ -79,16 +86,22 @@ def main(args):
     print(f"There are [{len(train_loader)}] batches in training set and " + 
           f"[{len(dev_loader)}] batches for evaluation.\n\n")
 
-    # load model configs
+    # build linear layer dimension list
     input_dim = (2 * configs['context_len'] + 1) * dev_dataset.num_features
-    linear_list = [input_dim * configs['model']['add_powers']] + configs['model']['linear']
+    # adding powers when necessary
+    input_dim = (
+        input_dim * configs['model']['add_powers'] if configs['model']['add_powers'] >= 2
+        else input_dim
+    )
+    linear_list = [input_dim, *configs['model']['linear']]
     
     # build model
     model = MLP(
         dim_list=linear_list,
         activation_list=configs['model']['activation'],
         dropout_list=configs['model']['dropout'],
-        batchnorm_list=configs['model']['batchnorm']
+        batchnorm_list=configs['model']['batchnorm'],
+        noise_level=configs['training']['noise_level']
     )
     # show model structure & number of parameters
     print(f"\nModel Architecture:\n{model}\n")
@@ -105,19 +118,26 @@ def main(args):
         # initialize model weights
         model.apply(lambda l: model_weights_init(l, configs['model']['init']))
 
+    # take model to the device
+    model.to(device)
+    # NOTE: safer to move now and ensure both model & optimizer on the same device
+
     # build the optimizer & loss function
     optimizer = (
         torch.optim.Adam(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'Adam'
+        if configs['optimizer']['name'] == 'adam'
         else torch.optim.AdamW(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'AdamW'
+        if configs['optimizer']['name'] == 'adamw'
         else torch.optim.SGD(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'SGD'
-        else torch.optim.Adam(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'Adagrad'
-        else torch.optim.RMSProp(model.parameters(), **configs['optimizer']['configs'])
+        if configs['optimizer']['name'] == 'sgd'
+        else torch.optim.Adagrad(model.parameters(), **configs['optimizer']['configs'])
+        if configs['optimizer']['name'] == 'adagrad'
+        else torch.optim.NAdam(model.parameters(), **configs['optimizer']['configs'])
+        if configs['optimizer']['name'] == 'nadam'
+        else torch.optim.RMSprop(model.parameters(), **configs['optimizer']['configs'])
         # default: RMSProp
     )
+
     # load from previous check point if exists and asked
     if ('load_optimizer_checkpoint' in configs['training']
         and configs['training']['load_optimizer_checkpoint']):
@@ -129,9 +149,28 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss()
 
     # load scheduler
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        optimizer, **configs['scheduler']['configs']
-    ) if 'scheduler' in configs else None
+    if 'scheduler' in configs:
+        scheduler = (
+            torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+                optimizer, **configs['scheduler']['configs']
+            ) if configs['scheduler']['name'] == 'cosine_annealing_warm_restarts'
+            else torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, **configs['scheduler']['configs']
+            ) if configs['scheduler']['name'] == 'cosine_annealing_lr'
+            else torch.optim.lr_scheduler.ReduceLROnPlateau(
+                optimizer, **configs['scheduler']['configs']
+            ) if configs['scheduler']['name'] == 'reduce_lr_on_plateau'
+            else torch.optim.lr_scheduler.ExponentialLR(
+                optimizer, **configs['scheduler']['configs']
+            ) if configs['scheduler']['name'] == 'exponential_lr'
+            else torch.optim.lr_scheduler.OneCycleLR(
+                optimizer, **configs['scheduler']['configs']
+            ) if configs['scheduler']['name'] == 'one_cycle_lr'
+            # default: multistep
+            else torch.optim.lr_scheduler.MultiStepLR(
+                optimizer, **configs['scheduler']['configs']
+            ) 
+        )
 
     # log hyperparams
     wandb.config = {
@@ -140,11 +179,10 @@ def main(args):
         'training_configs': configs['training']
     }
 
-    # take model to the device
-    model.to(device)
     # switch to initial training status
     model.train()
 
+    # trivial record keeping
     num_epochs = configs['training']['epochs']
     train_loss_history = np.zeros((num_epochs, ))
     train_accu_history = np.zeros((num_epochs, ))
@@ -187,9 +225,13 @@ def main(args):
             loss.backward()
             # update parameters
             optimizer.step()
-            # update learning rate
+            # update learning rate & log it
             if scheduler:
                 scheduler.step()
+                if OFFICIAL_TRAINING_MODE:
+                    wandb.log({
+                        "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
+                    })
 
             # record per-batch stats
             train_loss_this_batch = loss.item()
@@ -205,10 +247,13 @@ def main(args):
             # obtain the avg stats for training in this batch
             train_accu_this_batch /= train_count_this_batch
 
-            wandb.log({
-                "train_loss_per_batch": train_loss_this_batch,
-                "train_accu_per_batch": train_accu_this_batch 
-            })
+            # record the per-batch training loss and accuracy
+            if OFFICIAL_TRAINING_MODE:
+                wandb.log({
+                    "train_loss_per_batch": train_loss_this_batch,
+                    "train_accu_per_batch": train_accu_this_batch,
+                    "learning_rate_in_optimizer": optimizer.param_groups[0]['lr']
+                })
 
             # run evaluation on dev set
             if ((batch + 1) % dev_eval_batches == 0 or 
@@ -230,6 +275,7 @@ def main(args):
                         dev_loss_this_batch += loss.item() * y.shape[0]
                         dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
                         dev_count += y.shape[0]
+
                 # obtain avg metrics
                 dev_loss_this_batch /= dev_count
                 dev_accu_this_batch /= dev_count
@@ -237,11 +283,12 @@ def main(args):
                 dev_loss_history[epoch].append(dev_loss_this_batch)
                 dev_accu_history[epoch].append(dev_accu_this_batch)
 
-                # log to wandb
-                wandb.log({
-                    "dev_loss_per_batch": dev_loss_history[epoch][-1],
-                    "dev_accu_per_batch": dev_accu_history[epoch][-1]
-                })
+                if OFFICIAL_TRAINING_MODE:
+                    # log to wandb
+                    wandb.log({
+                        "dev_loss_per_batch": dev_loss_history[epoch][-1],
+                        "dev_accu_per_batch": dev_accu_history[epoch][-1]
+                    })
 
                 # save the best model(s)
                 if dev_loss_history[epoch][-1] < best_dev_loss['dev_loss']:
@@ -281,6 +328,13 @@ def main(args):
             
         train_loss_history[epoch] = train_loss_this_epoch / train_count
         train_accu_history[epoch] = train_accu_this_epoch / train_count
+
+        if OFFICIAL_TRAINING_MODE:
+            # record the per_epoch stats
+            wandb.log({
+                'train_loss_per_epoch': train_loss_history[epoch],
+                'train_accu_per_epoch': train_accu_history[epoch]
+            })
 
     # save the loss history to log file
     pickle.dump({

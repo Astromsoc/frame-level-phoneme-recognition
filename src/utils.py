@@ -32,7 +32,7 @@ class AudioDataset(torch.utils.data.Dataset):
         self.phoneme_dict = phoneme_dict
         
         # record the pow count if needed
-        self.add_powers = add_powers if add_powers >= 2 else 0
+        self.add_powers = int(add_powers) if add_powers >= 2 else 0
 
         # save the (preprocessed) data into 2 list attributes
         self.features = list()
