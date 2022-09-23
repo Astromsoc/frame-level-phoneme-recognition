@@ -15,7 +15,7 @@ from src.models import MLP
 
 
 # whether to connect to wandb and log the process
-OFFICIAL_TRAINING_MODE = False
+OFFICIAL_TRAINING_MODE = True
 
 
 """
@@ -263,7 +263,7 @@ def main(args):
                 if OFFICIAL_TRAINING_MODE:
                     # log to wandb
                     wandb.log({
-                        "train_loss_per_milestone": (train_loss_per_epoch / train_count),
+                        "train_loss_per_milestone": (train_loss_this_epoch / train_count),
                         "train_accu_per_milestone": (train_accu_this_epoch / train_count),
                         "dev_loss_per_milestone": dev_loss_history[epoch][-1],
                         "dev_accu_per_milestone": dev_accu_history[epoch][-1]
