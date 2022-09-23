@@ -35,22 +35,24 @@ OPTIMIZER_MAP = {
 
 # dict to build scheduler based on config specifications
 SCHEDULER_MAP = {
-    'cosine_annealing_warm_restarts': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, **cfg)),
-    'cosine_annealing_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.CosineAnnealingLR(opt, **cfg)),
-    'reduce_lr_on_plateau': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg)),
-    'exponential_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.ExponentialLR(opt, **cfg)),
-    'one_cycle_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg)),
-    'multiplicative_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.MultiplicativeLR(opt, **cfg)),
-    'multi_step_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.MultiStepLR(opt, **cfg)),
-    'lambda_lr': (lambda opt, cfg: 
-        torch.optim.lr_scheduler.LambdaLR(opt, **cfg))
+    'cosine_annealing_warm_restarts': lambda opt, cfg: 
+        torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, **cfg),
+    'cosine_annealing_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.CosineAnnealingLR(opt, **cfg),
+    'reduce_lr_on_plateau': lambda opt, cfg: 
+        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg),
+    'exponential_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.ExponentialLR(opt, **cfg),
+    'one_cycle_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg),
+    'multiplicative_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.MultiplicativeLR(opt, **cfg),
+    'multi_step_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.MultiStepLR(opt, **cfg),
+    'lambda_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.LambdaLR(opt, **cfg),
+    'cyclic_lr': lambda opt, cfg: 
+        torch.optim.lr_scheduler.CyclicLR(opt, **cfg)
 }
 
 
@@ -241,6 +243,6 @@ def model_weights_init(
     """
     if isinstance(layer, torch.nn.Linear):
         # init the weight given init_method; default: xavier
-        WEIGHT_INIT_MAP.get(init_method, 'xavier')(layer.weights)
+        WEIGHT_INIT_MAP.get(init_method, 'xavier')(layer.weight)
         # init the bias from 0: avoid disturbance / divergence
         torch.nn.init.zeros_(layer.bias)

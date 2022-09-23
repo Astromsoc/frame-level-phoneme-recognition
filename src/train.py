@@ -15,7 +15,7 @@ from src.models import MLP
 
 
 # whether to connect to wandb and log the process
-OFFICIAL_TRAINING_MODE = True
+OFFICIAL_TRAINING_MODE = False
 
 
 """
@@ -129,7 +129,7 @@ def main(args):
 
     # build the optimizer & loss function
     optimizer = OPTIMIZER_MAP.get(
-        configs['optimizer']['name'], 'adamw'
+        configs['optimizer']['name'], OPTIMIZER_MAP['adamw']
     )(model.parameters(), configs['optimizer']['configs'])
 
     # load from previous check point if exists and asked
@@ -145,7 +145,7 @@ def main(args):
     # load scheduler
     if 'scheduler' in configs:
         scheduler = SCHEDULER_MAP.get(
-            configs['scheduler']['name'], 'cosine_annealing_lr'
+            configs['scheduler']['name'], SCHEDULER_MAP['cosine_annealing_lr']
         )(optimizer, configs['scheduler']['configs'])
 
     # log hyperparams
