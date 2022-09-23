@@ -19,7 +19,10 @@ model:
     - 1024
     - 1024
     - 1024
+    - 512
   activation:
+    - "softplus"
+    - "softplus"
     - "softplus"
     - "softplus"
     - "softplus"
@@ -30,7 +33,9 @@ model:
     - 0.12
     - 0.12
     - 0.12
+    - 0.12
   batchnorm:
+    - true
     - true
     - true
     - true
@@ -43,32 +48,35 @@ optimizer:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
   name: "adamw"
   configs:
-    lr: 1.0e-3
+    lr: 0.00001
 
 # scheduler: comment the entire section if unwanted
 scheduler:
   # choose from:
   # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
   # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
-  name: cosine_annealing_warm_restarts
+  # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
+  name: cyclic_lr
   configs:
-    # since which batch (in total) to warm up
-    T_0: 500
+    base_lr: 1.0e-7
+    max_lr: 1.0e-5
+    step_size_up: 1810
+    gamma: 0.9
 
 training:
   seed: 11785
-  epochs: 25
+  epochs: 10
   batch_size: 10000
   # how many evaluations per epoch
-  eval_per_epoch: 5
+  eval_per_epoch: 2
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.001
-  # # ** the following 2 flags can be commented **
-  # # checkpoint for the start of training -- if needed
-  # init_checkpoint: "**your-checkpoint-filepath-here**"
-  # # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
-  # load_optimizer_checkpoint: false
+  noise_level: 0.01
+  # ** the following 2 flags can be commented **
+  # checkpoint for the start of training -- if needed
+  init_checkpoint: "**your-checkpoint-filepath-here**"
+  # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
+  load_optimizer_checkpoint: false
 
 inference:
   batch_size: 10000
