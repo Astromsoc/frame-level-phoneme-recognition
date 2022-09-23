@@ -11,6 +11,10 @@ from src.models import MLP
 
 
 
+"""
+    Main Function Starts from Here...
+"""
+
 def main(args):
 
     # check  device
@@ -63,10 +67,12 @@ def main(args):
         '.pt', '_output.csv'
     )
 
+
     pred_count = 0
-    # start inference
+    # start inference within the eval mode
     model.eval()
     model.is_training = False
+
     # write to output file as predicting
     with open(output_filepath, 'a') as fw:
         fw.write("id,label\n")
@@ -92,6 +98,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '--checkpoint-filepath', 
         type=str, 
+        default='checkpoints/run-spring-morning-105/best_dev_loss.pt',
         help="Path to the model checkpoint."
     )
     parser.add_argument(

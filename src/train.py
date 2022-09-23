@@ -13,8 +13,14 @@ from src.utils import *
 from src.models import MLP
 
 
+
 # whether to connect to wandb and log the process
 OFFICIAL_TRAINING_MODE = True
+
+
+"""
+    Main Function Starts from Here...
+"""
 
 def main(args):
 
@@ -122,20 +128,9 @@ def main(args):
     # NOTE: safer to move now and ensure both model & optimizer on the same device
 
     # build the optimizer & loss function
-    optimizer = (
-        torch.optim.Adam(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'adam'
-        else torch.optim.AdamW(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'adamw'
-        else torch.optim.SGD(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'sgd'
-        else torch.optim.Adagrad(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'adagrad'
-        else torch.optim.NAdam(model.parameters(), **configs['optimizer']['configs'])
-        if configs['optimizer']['name'] == 'nadam'
-        else torch.optim.RMSprop(model.parameters(), **configs['optimizer']['configs'])
-        # default: RMSProp
-    )
+    optimizer = OPTIMIZER_MAP.get(
+        configs['optimizer']['name'], 'adamw'
+    )(model.parameters(), configs['optimizer']['configs'])
 
     # load from previous check point if exists and asked
     if ('load_optimizer_checkpoint' in configs['training']
@@ -149,27 +144,9 @@ def main(args):
 
     # load scheduler
     if 'scheduler' in configs:
-        scheduler = (
-            torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-                optimizer, **configs['scheduler']['configs']
-            ) if configs['scheduler']['name'] == 'cosine_annealing_warm_restarts'
-            else torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, **configs['scheduler']['configs']
-            ) if configs['scheduler']['name'] == 'cosine_annealing_lr'
-            else torch.optim.lr_scheduler.ReduceLROnPlateau(
-                optimizer, **configs['scheduler']['configs']
-            ) if configs['scheduler']['name'] == 'reduce_lr_on_plateau'
-            else torch.optim.lr_scheduler.ExponentialLR(
-                optimizer, **configs['scheduler']['configs']
-            ) if configs['scheduler']['name'] == 'exponential_lr'
-            else torch.optim.lr_scheduler.OneCycleLR(
-                optimizer, **configs['scheduler']['configs']
-            ) if configs['scheduler']['name'] == 'one_cycle_lr'
-            # default: multistep
-            else torch.optim.lr_scheduler.MultiStepLR(
-                optimizer, **configs['scheduler']['configs']
-            ) 
-        )
+        scheduler = SCHEDULER_MAP.get(
+            configs['scheduler']['name'], 'cosine_annealing_lr'
+        )(optimizer, configs['scheduler']['configs'])
 
     # log hyperparams
     wandb.config = {
@@ -177,9 +154,6 @@ def main(args):
         'optimizer_configs': configs['optimizer'],
         'training_configs': configs['training']
     }
-
-    # switch to initial training status
-    model.train()
 
     # trivial record keeping
     num_epochs = configs['training']['epochs']
@@ -203,6 +177,9 @@ def main(args):
         len(train_loader) / configs['training']['eval_per_epoch']
     ))
 
+    # switch to initial training status
+    model.train()
+
     # train the model
     for epoch in range(num_epochs):
 
@@ -224,13 +201,6 @@ def main(args):
             loss.backward()
             # update parameters
             optimizer.step()
-            # update learning rate & log it
-            if scheduler:
-                scheduler.step()
-                if OFFICIAL_TRAINING_MODE:
-                    wandb.log({
-                        "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
-                    })
 
             # record per-batch stats
             train_loss_this_batch = loss.item()
@@ -253,6 +223,14 @@ def main(args):
                     "train_accu_per_batch": train_accu_this_batch,
                     "learning_rate_in_optimizer": optimizer.param_groups[0]['lr']
                 })
+
+            # update learning rate & log it
+            if scheduler:
+                scheduler.step()
+                if OFFICIAL_TRAINING_MODE:
+                    wandb.log({
+                        "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
+                    })
 
             # run evaluation on dev set
             if ((batch + 1) % dev_eval_batches == 0 or 
@@ -285,8 +263,10 @@ def main(args):
                 if OFFICIAL_TRAINING_MODE:
                     # log to wandb
                     wandb.log({
-                        "dev_loss_per_batch": dev_loss_history[epoch][-1],
-                        "dev_accu_per_batch": dev_accu_history[epoch][-1]
+                        "train_loss_per_milestone": (train_loss_per_epoch / train_count),
+                        "train_accu_per_milestone": (train_accu_this_epoch / train_count),
+                        "dev_loss_per_milestone": dev_loss_history[epoch][-1],
+                        "dev_accu_per_milestone": dev_accu_history[epoch][-1]
                     })
 
                 # save the best model(s)

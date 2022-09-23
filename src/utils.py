@@ -11,6 +11,50 @@ from collections import Counter
 
 
 
+"""
+    Mapping from Configuration Specifications
+        to Corresponding Classes / Functions
+"""
+
+WEIGHT_INIT_MAP = {
+    'xavier': torch.nn.init.xavier_uniform_,
+    'kaiming': torch.nn.init.kaiming_uniform_,
+    'normal': torch.nn.init.normal_,
+    'zeros': torch.nn.init.zeros_
+}
+
+# dict to build optimizer based on config specifications
+OPTIMIZER_MAP = {
+    'adam': lambda prm, cfg: torch.optim.Adam(prm, **cfg),
+    'adamw': lambda prm, cfg: torch.optim.AdamW(prm, **cfg),
+    'adagrad': lambda prm, cfg: torch.optim.Adagrad(prm, **cfg),
+    'nadam': lambda prm, cfg: torch.optim.NAdam(prm, **cfg),
+    'sgd': lambda prm, cfg: torch.optim.SGD(prm, **cfg),
+    'rmsprop': lambda prm, cfg: torch.optim.RMSprop(prm, **cfg)
+}
+
+# dict to build scheduler based on config specifications
+SCHEDULER_MAP = {
+    'cosine_annealing_warm_restarts': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(opt, **cfg)),
+    'cosine_annealing_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.CosineAnnealingLR(opt, **cfg)),
+    'reduce_lr_on_plateau': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg)),
+    'exponential_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.ExponentialLR(opt, **cfg)),
+    'one_cycle_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg)),
+    'multiplicative_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.MultiplicativeLR(opt, **cfg)),
+    'multi_step_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.MultiStepLR(opt, **cfg)),
+    'lambda_lr': (lambda opt, cfg: 
+        torch.optim.lr_scheduler.LambdaLR(opt, **cfg))
+}
+
+
+
 class AudioDataset(torch.utils.data.Dataset):
     """
         Dataset instance for training & development sets
@@ -196,13 +240,7 @@ def model_weights_init(
         Function to initialize model weights
     """
     if isinstance(layer, torch.nn.Linear):
-        if init_method == 'xavier':
-            torch.nn.init.xavier_uniform_(layer.weight)
-        elif init_method == 'kaiming':
-            torch.nn.init.kaiming_uniform_(layer.weight)
-        elif init_method == 'normal':
-            torch.nn.init.normal_(layer.weight)
-        else:
-            torch.nn.init.zeros_(layer.weight)
+        # init the weight given init_method; default: xavier
+        WEIGHT_INIT_MAP.get(init_method, 'xavier')(layer.weights)
         # init the bias from 0: avoid disturbance / divergence
         torch.nn.init.zeros_(layer.bias)
