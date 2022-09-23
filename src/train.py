@@ -2,7 +2,6 @@
     Training driver script
 """
 
-from re import M
 import sys
 import yaml
 import torch
