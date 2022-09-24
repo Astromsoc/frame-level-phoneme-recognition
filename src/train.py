@@ -128,9 +128,13 @@ def main(args):
     # NOTE: safer to move now and ensure both model & optimizer on the same device
 
     # build the optimizer & loss function
-    optimizer = OPTIMIZER_MAP.get(
+    optimizer_later = OPTIMIZER_MAP.get(
         configs['optimizer']['name'], OPTIMIZER_MAP['adamw']
     )(model.parameters(), configs['optimizer']['configs'])
+    if configs['optimizer']['adam_warmup_epochs']:
+        optimizer = OPTIMIZER_MAP['adamw'](model.parameters(), {'lr': 0.001})
+    else:
+        optimizer = optimizer_later
 
     # load from previous check point if exists and asked
     if ('load_optimizer_checkpoint' in configs['training']
@@ -142,11 +146,8 @@ def main(args):
     # load loss function
     criterion = torch.nn.CrossEntropyLoss()
 
-    # load scheduler
-    if 'scheduler' in configs:
-        scheduler = SCHEDULER_MAP.get(
-            configs['scheduler']['name'], SCHEDULER_MAP['cosine_annealing_lr']
-        )(optimizer, configs['scheduler']['configs'])
+    # placeholder for the scheduler variable
+    scheduler = None
 
     # log hyperparams
     wandb.config = {
@@ -189,6 +190,15 @@ def main(args):
         train_loss_this_epoch = 0
         train_accu_this_epoch = 0
 
+        # switch back to original optimizer
+        if epoch == configs['optimizer']['adam_warmup_epochs']:
+            optimizer = optimizer_later    # won't impact if there's no adam warmup
+            # load scheduler for later optimizer as well
+            if 'scheduler' in configs:
+                scheduler = SCHEDULER_MAP.get(
+                    configs['scheduler']['name'], SCHEDULER_MAP['cosine_annealing_lr']
+                )(optimizer, configs['scheduler']['configs'])
+
         # iterate through batches
         for batch, x_and_y in enumerate(train_loader):
             # clear previous grads
@@ -223,7 +233,7 @@ def main(args):
                     "train_accu_per_batch": train_accu_this_batch,
                     "learning_rate_in_optimizer": optimizer.param_groups[0]['lr']
                 })
-
+            
             # update learning rate & log it
             if scheduler:
                 scheduler.step()
@@ -314,6 +324,7 @@ def main(args):
                 'train_loss_per_epoch': train_loss_history[epoch],
                 'train_accu_per_epoch': train_accu_history[epoch]
             })
+        
 
     # save the loss history to log file
     pickle.dump({

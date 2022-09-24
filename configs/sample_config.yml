@@ -18,7 +18,7 @@ model:
     - 1024
     - 1024
     - 1024
-    - 1024
+    - 512
     - 512
   activation:
     - "softplus"
@@ -29,26 +29,29 @@ model:
     - "softplus"
   dropout:
     - 0.12
-    - 0.12
-    - 0.12
-    - 0.12
-    - 0.12
-    - 0.12
+    - 0.10
+    - 0.10
+    - 0.10
+    - 0.08
+    - 0.08
   batchnorm:
+    - false
     - true
+    - false
+    - false
     - true
-    - true
-    - true
-    - true
-    - true
+    - false
   init: "kaiming"
 
 optimizer:
+  adam_warmup_epochs: 1
   # choose from:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
-  name: "adamw"
+  name: "sgd"
   configs:
-    lr: 0.00001
+    lr: 0.0001
+    momentum: 0.8
+    nesterov: true
 
 # scheduler: comment the entire section if unwanted
 scheduler:
@@ -56,27 +59,33 @@ scheduler:
   # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
   # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
   # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
-  name: cyclic_lr
+
+  # COSINE_ANNEALING_WARM_RESTARTS
+  name: cosine_annealing_warm_restarts
   configs:
-    base_lr: 1.0e-7
-    max_lr: 1.0e-5
-    step_size_up: 1810
-    gamma: 0.9
+    T_0: 5000
+    T_mult: 2
+    eta_min: 1.0e-8
+
+  # # EXPONENTIAL_LR
+  # name: exponential_lr
+  # configs:
+  #   gamma: 0.8
 
 training:
   seed: 11785
-  epochs: 10
-  batch_size: 10000
+  epochs: 50
+  batch_size: 12000
   # how many evaluations per epoch
-  eval_per_epoch: 2
+  eval_per_epoch: 3
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.01
-  # ** the following 2 flags can be commented **
-  # checkpoint for the start of training -- if needed
-  init_checkpoint: "**your-checkpoint-filepath-here**"
-  # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
-  load_optimizer_checkpoint: false
+  noise_level: 0.08
+  # # ** the following 2 flags can be commented **
+  # # checkpoint for the start of training -- if needed
+  # init_checkpoint: "**your-checkpoint-filepath-here**"
+  # # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
+  # load_optimizer_checkpoint: false
 
 inference:
-  batch_size: 10000
+  batch_size: 12000
