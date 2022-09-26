@@ -262,6 +262,8 @@ def main(args):
                         dev_loss_this_batch += loss.item() * y.shape[0]
                         dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
                         dev_count += y.shape[0]
+                        del x, y, y_pred, loss
+                        torch.cuda.empty_cache()
 
                 # obtain avg metrics
                 dev_loss_this_batch /= dev_count

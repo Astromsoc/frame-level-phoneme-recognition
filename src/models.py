@@ -53,8 +53,9 @@ class MLP(torch.nn.Module):
         
         # build the layers given input configurations
         layers = [
-            unit for pair in zip_longest(self.linears, self.batchnorms, self.activations, self.dropouts) 
-            for unit in pair if unit 
+            unit for pair in zip_longest(
+                self.linears, self.activations, self.dropouts, self.batchnorms
+            ) for unit in pair if unit 
         ]
         # alter the order of dropout and relu if they are intertwined
         for i, layer in enumerate(layers):
@@ -65,7 +66,9 @@ class MLP(torch.nn.Module):
         self.streamline = nn.Sequential(*layers)
 
         # compute the parameter size
-        self.trainable_param_count = sum(p.numel() for p in self.parameters() if p.requires_grad)
+        self.trainable_param_count = sum(
+            p.numel() for p in self.parameters() if p.requires_grad
+        )
         self.total_param_count = sum(p.numel() for p in self.parameters())
 
         # record the flag as whether to add noise during training
