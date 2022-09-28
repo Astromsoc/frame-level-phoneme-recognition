@@ -35,52 +35,64 @@ model:
     - 0.08
     - 0.08
   batchnorm:
-    - false
     - true
-    - false
-    - false
     - true
-    - false
-  init: "kaiming"
+    - true
+    - true
+    - true
+    - true
+  init: "xavier"
+
 
 optimizer:
   adam_warmup_epochs: 1
+  restart_optim_interval: 3
   # choose from:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
-  name: "sgd"
+  name: "adamw"
   configs:
     lr: 0.0001
-    momentum: 0.8
-    nesterov: true
+    betas:
+      - 0.85
+      - 0.999
+    weight_decay: 0.1
+    amsgrad: true
 
-# scheduler: comment the entire section if unwanted
-scheduler:
-  # choose from:
-  # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
-  # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
-  # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
-
-  # COSINE_ANNEALING_WARM_RESTARTS
-  name: cosine_annealing_warm_restarts
-  configs:
-    T_0: 5000
-    T_mult: 2
-    eta_min: 1.0e-8
-
-  # # EXPONENTIAL_LR
-  # name: exponential_lr
+  # name: "sgd"
   # configs:
-  #   gamma: 0.8
+  #   lr: 0.0001
+  #   momentum: 0.8
+  #   nesterov: true
+
+
+# # scheduler: comment the entire section if unwanted
+# scheduler:
+#   # choose from:
+#   # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
+#   # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
+#   # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
+
+#   # COSINE_ANNEALING_WARM_RESTARTS
+#   name: cosine_annealing_warm_restarts
+#   configs:
+#     T_0: 300
+#     T_mult: 2
+#     eta_min: 1.0e-8
+
+#   # # EXPONENTIAL_LR
+#   # name: exponential_lr
+#   # configs:
+#   #   gamma: 0.8
 
 training:
   seed: 11785
-  epochs: 50
-  batch_size: 12000
+  epochs: 20
+  batch_size: 8192
   # how many evaluations per epoch
-  eval_per_epoch: 3
+  eval_per_epoch: 5
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.08
+  noise_level: 0.05
   # # ** the following 2 flags can be commented **
   # # checkpoint for the start of training -- if needed
   # init_checkpoint: "**your-checkpoint-filepath-here**"
@@ -88,4 +100,4 @@ training:
   # load_optimizer_checkpoint: false
 
 inference:
-  batch_size: 12000
+  batch_size: 8192
