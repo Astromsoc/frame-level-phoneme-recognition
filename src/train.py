@@ -15,7 +15,7 @@ from src.models import MLP
 
 
 # whether to connect to wandb and log the process
-OFFICIAL_TRAINING_MODE = True
+UPLOAD_TO_WANDB = False
 
 
 """
@@ -41,7 +41,7 @@ def main(args):
     torch.manual_seed(SEED)
 
     # init wandb for formal training
-    if OFFICIAL_TRAINING_MODE:
+    if UPLOAD_TO_WANDB:
         wandb.init(
             project='785hw1',
             entity='astromsoc'
@@ -128,13 +128,15 @@ def main(args):
     # NOTE: safer to move now and ensure both model & optimizer on the same device
 
     # build the optimizer & loss function
-    optimizer_later = OPTIMIZER_MAP.get(
+    longterm_optimizer = OPTIMIZER_MAP.get(
         configs['optimizer']['name'], OPTIMIZER_MAP['adamw']
     )(model.parameters(), configs['optimizer']['configs'])
+
+    # use warmup training w/ adam just for a few initial epochs
     if configs['optimizer']['adam_warmup_epochs']:
         optimizer = OPTIMIZER_MAP['adamw'](model.parameters(), {'lr': 0.001})
     else:
-        optimizer = optimizer_later
+        optimizer = longterm_optimizer
 
     # load from previous check point if exists and asked
     if ('load_optimizer_checkpoint' in configs['training']
@@ -191,13 +193,21 @@ def main(args):
         train_accu_this_epoch = 0
 
         # switch back to original optimizer
-        if epoch == configs['optimizer']['adam_warmup_epochs']:
-            optimizer = optimizer_later    # won't impact if there's no adam warmup
+        if ('adam_warmup_epochs' in configs['optimizer'] and
+            epoch == configs['optimizer']['adam_warmup_epochs']):
+            optimizer = longterm_optimizer 
             # load scheduler for later optimizer as well
             if 'scheduler' in configs:
                 scheduler = SCHEDULER_MAP.get(
                     configs['scheduler']['name'], SCHEDULER_MAP['cosine_annealing_lr']
                 )(optimizer, configs['scheduler']['configs'])
+        
+        # reinitialize the optimizer if needed
+        if ('restart_optim_interval' in configs['optimizer'] and 
+            epoch % configs['optimizer']['restart_optim_interval'] == 0):
+            optimizer = OPTIMIZER_MAP.get(
+                configs['optimizer']['name'], OPTIMIZER_MAP['adamw']
+            )(model.parameters(), configs['optimizer']['configs'])
 
         # iterate through batches
         for batch, x_and_y in enumerate(train_loader):
@@ -227,7 +237,7 @@ def main(args):
             train_accu_this_batch /= train_count_this_batch
 
             # record the per-batch training loss and accuracy
-            if OFFICIAL_TRAINING_MODE:
+            if UPLOAD_TO_WANDB:
                 wandb.log({
                     "train_loss_per_batch": train_loss_this_batch,
                     "train_accu_per_batch": train_accu_this_batch,
@@ -237,7 +247,7 @@ def main(args):
             # update learning rate & log it
             if scheduler:
                 scheduler.step()
-                if OFFICIAL_TRAINING_MODE:
+                if UPLOAD_TO_WANDB:
                     wandb.log({
                         "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
                     })
@@ -262,6 +272,7 @@ def main(args):
                         dev_loss_this_batch += loss.item() * y.shape[0]
                         dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
                         dev_count += y.shape[0]
+                        # release occupied memory
                         del x, y, y_pred, loss
                         torch.cuda.empty_cache()
 
@@ -272,7 +283,7 @@ def main(args):
                 dev_loss_history[epoch].append(dev_loss_this_batch)
                 dev_accu_history[epoch].append(dev_accu_this_batch)
 
-                if OFFICIAL_TRAINING_MODE:
+                if UPLOAD_TO_WANDB:
                     # log to wandb
                     wandb.log({
                         "train_loss_per_milestone": (train_loss_this_epoch / train_count),
@@ -320,7 +331,7 @@ def main(args):
         train_loss_history[epoch] = train_loss_this_epoch / train_count
         train_accu_history[epoch] = train_accu_this_epoch / train_count
 
-        if OFFICIAL_TRAINING_MODE:
+        if UPLOAD_TO_WANDB:
             # record the per_epoch stats
             wandb.log({
                 'train_loss_per_epoch': train_loss_history[epoch],

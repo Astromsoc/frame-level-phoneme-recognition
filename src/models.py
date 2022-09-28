@@ -54,7 +54,7 @@ class MLP(torch.nn.Module):
         # build the layers given input configurations
         layers = [
             unit for pair in zip_longest(
-                self.linears, self.activations, self.dropouts, self.batchnorms
+                self.linears, self.batchnorms, self.activations, self.dropouts
             ) for unit in pair if unit 
         ]
         # alter the order of dropout and relu if they are intertwined
