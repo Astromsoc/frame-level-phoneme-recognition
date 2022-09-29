@@ -15,7 +15,8 @@ class MLP(torch.nn.Module):
         'sigmoid': nn.Sigmoid(),
         'softmax': nn.Softmax(),
         'softplus': nn.Softplus(),
-        'leakyrelu': nn.LeakyReLU()
+        'leakyrelu': nn.LeakyReLU(),
+        'gelu': nn.GELU()
     }
     output_dim = 40
 
@@ -57,11 +58,7 @@ class MLP(torch.nn.Module):
                 self.linears, self.batchnorms, self.activations, self.dropouts
             ) for unit in pair if unit 
         ]
-        # alter the order of dropout and relu if they are intertwined
-        for i, layer in enumerate(layers):
-            if isinstance(layer, nn.Dropout):
-                if i > 0 and isinstance(layers[i - 1], nn.ReLU):
-                    layers[i - 1], layers[i] = layers[i], layers[i - 1]
+        
         # build the model accordingly
         self.streamline = nn.Sequential(*layers)
 

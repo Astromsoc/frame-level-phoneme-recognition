@@ -15,11 +15,11 @@ from src.models import MLP
 
 
 # whether to connect to wandb and log the process
-UPLOAD_TO_WANDB = False
+UPLOAD_TO_WANDB = True
 
 
 """
-    Main Function Starts from Here...
+    Main Function Starts From Here...
 """
 
 def main(args):
@@ -133,12 +133,13 @@ def main(args):
     )(model.parameters(), configs['optimizer']['configs'])
 
     # use warmup training w/ adam just for a few initial epochs
-    if configs['optimizer']['adam_warmup_epochs']:
+    if ('adam_warmup_epochs' in configs['optimizer'] and
+        configs['optimizer']['adam_warmup_epochs']):
         optimizer = OPTIMIZER_MAP['adamw'](model.parameters(), {'lr': 0.001})
     else:
         optimizer = longterm_optimizer
 
-    # load from previous check point if exists and asked
+    # load from previous check point if existed and asked
     if ('load_optimizer_checkpoint' in configs['training']
         and configs['training']['load_optimizer_checkpoint']):
         optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -149,7 +150,10 @@ def main(args):
     criterion = torch.nn.CrossEntropyLoss()
 
     # placeholder for the scheduler variable
-    scheduler = None
+    scheduler = (SCHEDULER_MAP.get(
+        configs['scheduler']['name'], SCHEDULER_MAP['cosine_annealing_lr']
+    )(optimizer, configs['scheduler']['configs']) 
+    if 'scheduler' in configs else None)
 
     # log hyperparams
     wandb.config = {
@@ -239,18 +243,11 @@ def main(args):
             # record the per-batch training loss and accuracy
             if UPLOAD_TO_WANDB:
                 wandb.log({
-                    "train_loss_per_batch": train_loss_this_batch,
-                    "train_accu_per_batch": train_accu_this_batch,
+                    "avg_train_loss_on_batch": train_loss_this_epoch / train_count,
+                    "avg_train_accu_on_batch": train_accu_this_epoch / train_count,
                     "learning_rate_in_optimizer": optimizer.param_groups[0]['lr']
                 })
             
-            # update learning rate & log it
-            if scheduler:
-                scheduler.step()
-                if UPLOAD_TO_WANDB:
-                    wandb.log({
-                        "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
-                    })
 
             # run evaluation on dev set
             if ((batch + 1) % dev_eval_batches == 0 or 
@@ -286,8 +283,6 @@ def main(args):
                 if UPLOAD_TO_WANDB:
                     # log to wandb
                     wandb.log({
-                        "train_loss_per_milestone": (train_loss_this_epoch / train_count),
-                        "train_accu_per_milestone": (train_accu_this_epoch / train_count),
                         "dev_loss_per_milestone": dev_loss_history[epoch][-1],
                         "dev_accu_per_milestone": dev_accu_history[epoch][-1]
                     })
@@ -300,8 +295,8 @@ def main(args):
                     best_dev_loss['dev_accu'] = dev_accu_history[epoch][-1]
                     best_dev_loss['model_state_dict'] = model.state_dict().copy()
                     best_dev_loss['optimizer_state_dict'] = optimizer.state_dict().copy()
-                    best_dev_loss['train_loss'] = train_loss_this_batch
-                    best_dev_loss['train_accu'] = train_accu_this_batch
+                    best_dev_loss['train_loss'] = train_loss_this_epoch / train_count
+                    best_dev_loss['train_accu'] = train_accu_this_epoch / train_count
                     torch.save(best_dev_loss, f'{folder}/best_dev_loss.pt')
 
                 if dev_accu_history[epoch][-1] > best_dev_accu['dev_accu']:
@@ -311,8 +306,8 @@ def main(args):
                     best_dev_accu['dev_accu'] = dev_accu_history[epoch][-1]
                     best_dev_accu['model_state_dict'] = model.state_dict().copy()
                     best_dev_accu['optimizer_state_dict'] = optimizer.state_dict().copy()
-                    best_dev_accu['train_loss'] = train_loss_this_batch
-                    best_dev_accu['train_accu'] = train_accu_this_batch
+                    best_dev_accu['train_loss'] = train_loss_this_epoch / train_count
+                    best_dev_accu['train_accu'] = train_accu_this_epoch / train_count
                     torch.save(best_dev_accu, f'{folder}/best_dev_accu.pt')
                 
                 # turn back to model training mode
@@ -322,8 +317,8 @@ def main(args):
             # print loss
             sys.stdout.write("\r" +
                 f"Epoch #{epoch + 1: <3} | Batch #{batch + 1: <5}: " +
-                f"train_loss = {train_loss_this_batch:.6f} | " + 
-                f"train_accu = {train_accu_this_batch * 100:.4f}% || " +
+                f"avg_train_loss = {train_loss_this_epoch / train_count:.6f} | " + 
+                f"avg_train_accu = {train_accu_this_epoch / train_count * 100:.4f}% || " +
                 f"dev_loss = {(dev_loss_history[epoch][-1] if dev_loss_history[epoch] else 0):.6f} | " + 
                 f"dev_accu = {((dev_accu_history[epoch][-1] if dev_accu_history[epoch] else 0) * 100):.4f}%")
             sys.stdout.flush()
@@ -337,6 +332,14 @@ def main(args):
                 'train_loss_per_epoch': train_loss_history[epoch],
                 'train_accu_per_epoch': train_accu_history[epoch]
             })
+        
+        # update learning rate & log it
+        if scheduler:
+            scheduler.step()
+            if UPLOAD_TO_WANDB:
+                wandb.log({
+                    "learning_rate_in_scheduler": scheduler.get_last_lr()[0]
+                })
         
 
     # save the loss history to log file

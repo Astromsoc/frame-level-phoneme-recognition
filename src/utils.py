@@ -47,7 +47,7 @@ SCHEDULER_MAP = {
         torch.optim.lr_scheduler.ReduceLROnPlateau(opt, **cfg),
     'multiplicative_lr': lambda opt, cfg: 
         torch.optim.lr_scheduler.MultiplicativeLR(opt, **cfg),
-    'multi_step_lr': lambda opt, cfg: 
+    'multistep_lr': lambda opt, cfg: 
         torch.optim.lr_scheduler.MultiStepLR(opt, **cfg),
     'lambda_lr': lambda opt, cfg: 
         torch.optim.lr_scheduler.LambdaLR(opt, **cfg),

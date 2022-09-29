@@ -7,33 +7,33 @@ DEV_DATA_DIR: "data/dev-clean"
 
 
 # configurables
-context_len: 50
+context_len: 25
 device_num_workers: 8
 
 model:
-  add_powers: 2
-  first_layer_activation: "softplus"
+  add_powers: 3
+  first_layer_activation: "gelu"
   linear:
+    - 2048
+    - 2048
     - 2048
     - 1024
     - 1024
     - 1024
-    - 512
-    - 512
   activation:
-    - "softplus"
-    - "softplus"
-    - "softplus"
-    - "softplus"
-    - "softplus"
-    - "softplus"
+    - "gelu"
+    - "gelu"
+    - "gelu"
+    - "gelu"
+    - "gelu"
+    - "gelu"
   dropout:
-    - 0.12
-    - 0.10
-    - 0.10
-    - 0.10
-    - 0.08
-    - 0.08
+    - 0.20
+    - 0.20
+    - 0.20
+    - 0.15
+    - 0.15
+    - 0.15
   batchnorm:
     - true
     - true
@@ -45,17 +45,17 @@ model:
 
 
 optimizer:
-  adam_warmup_epochs: 1
-  restart_optim_interval: 3
+  # adam_warmup_epochs: 1
+  # restart_optim_interval: 3
   # choose from:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
   name: "adamw"
   configs:
     lr: 0.0001
     betas:
-      - 0.85
+      - 0.9
       - 0.999
-    weight_decay: 0.1
+    weight_decay: 0.01
     amsgrad: true
 
   # name: "sgd"
@@ -65,34 +65,44 @@ optimizer:
   #   nesterov: true
 
 
-# # scheduler: comment the entire section if unwanted
-# scheduler:
-#   # choose from:
-#   # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
-#   # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
-#   # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
+# scheduler: comment the entire section if unwanted
+scheduler:
+  # choose from:
+  # 'one_cycle_lr', 'reduce_lr_on_plateau', 'exponential_lr'
+  # 'cosine_annealing_lr', 'cosine_annealing_warm_restarts'
+  # 'multiplicative_lr', 'lambda_lr', 'cyclic_lr'
 
-#   # COSINE_ANNEALING_WARM_RESTARTS
-#   name: cosine_annealing_warm_restarts
-#   configs:
-#     T_0: 300
-#     T_mult: 2
-#     eta_min: 1.0e-8
+  # # COSINE_ANNEALING_WARM_RESTARTS
+  # name: cosine_annealing_warm_restarts
+  # configs:
+  #   T_0: 300
+  #   T_mult: 2
+  #   eta_min: 1.0e-8
 
-#   # # EXPONENTIAL_LR
-#   # name: exponential_lr
-#   # configs:
-#   #   gamma: 0.8
+  # # EXPONENTIAL_LR
+  # name: exponential_lr
+  # configs:
+  #   gamma: 0.8
+
+  # MULTISTEP
+  name: multistep_lr
+  configs:
+    gamma: 0.5
+    milestones:
+      - 5
+      - 10
+      - 15
+  
 
 training:
   seed: 11785
   epochs: 20
-  batch_size: 8192
+  batch_size: 4096
   # how many evaluations per epoch
   eval_per_epoch: 5
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.05
+  noise_level: 0.08
   # # ** the following 2 flags can be commented **
   # # checkpoint for the start of training -- if needed
   # init_checkpoint: "**your-checkpoint-filepath-here**"
@@ -100,4 +110,4 @@ training:
   # load_optimizer_checkpoint: false
 
 inference:
-  batch_size: 8192
+  batch_size: 4096
