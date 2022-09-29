@@ -108,10 +108,6 @@ def main(args):
         batchnorm_list=configs['model']['batchnorm'],
         noise_level=configs['training']['noise_level']
     )
-    # show model structure & number of parameters
-    print(f"\nModel Architecture:\n{model}\n")
-    print(f"**PARAMETERS**: [{model.trainable_param_count}] trainable " +
-          f"out of [{model.total_param_count}] total.")
 
     # if there a model checkpoint exists: load from previous checkpoint
     if 'init_checkpoint' in configs['training']:
@@ -122,6 +118,22 @@ def main(args):
     else:
         # initialize model weights
         model.apply(lambda l: model_weights_init(l, configs['model']['init']))
+    
+    # modify the dropout rate if needed: for resumed training only
+    if 'new_dropout_rates' in configs['training']:
+        print(f"\nUpdating dropout rate for dropout layers...\n")
+        dropout_count = 0
+        for layer in model.streamline:
+            if isinstance(layer, torch.nn.Dropout):
+                layer = torch.nn.Dropout(
+                    configs['training']['new_dropout_rates'][dropout_count]
+                )
+                dropout_count += 1
+    
+    # show model structure & number of parameters
+    print(f"\nModel Architecture:\n{model}\n")
+    print(f"**PARAMETERS**: [{model.trainable_param_count}] trainable " +
+          f"out of [{model.total_param_count}] total.")
 
     # take model to the device
     model.to(device)

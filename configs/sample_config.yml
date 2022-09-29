@@ -28,12 +28,12 @@ model:
     - "gelu"
     - "gelu"
   dropout:
-    - 0.20
-    - 0.20
-    - 0.20
-    - 0.15
-    - 0.15
-    - 0.15
+    - 0.40
+    - 0.40
+    - 0.40
+    - 0.30
+    - 0.30
+    - 0.30
   batchnorm:
     - true
     - true
@@ -51,11 +51,8 @@ optimizer:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
   name: "adamw"
   configs:
-    lr: 0.0001
-    betas:
-      - 0.9
-      - 0.999
-    weight_decay: 0.01
+    lr: 0.001
+    weight_decay: 0.05
     amsgrad: true
 
   # name: "sgd"
@@ -97,17 +94,26 @@ scheduler:
 training:
   seed: 11785
   epochs: 20
-  batch_size: 4096
+  batch_size: 5000
   # how many evaluations per epoch
-  eval_per_epoch: 5
+  eval_per_epoch: 3
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.08
-  # # ** the following 2 flags can be commented **
-  # # checkpoint for the start of training -- if needed
-  # init_checkpoint: "**your-checkpoint-filepath-here**"
-  # # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
-  # load_optimizer_checkpoint: false
+  noise_level: 0.05
+  # ** the following 3 flags can be commented **
+  # checkpoint for the start of training -- if needed
+  init_checkpoint: "**your-checkpoint-here**"
+  # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
+  load_optimizer_checkpoint: false
+  # update dropout rate if necessary
+  new_dropout_rates:
+    - 0.40
+    - 0.40
+    - 0.40
+    - 0.30
+    - 0.30
+    - 0.30
 
+    
 inference:
-  batch_size: 4096
+  batch_size: 5000
