@@ -69,6 +69,7 @@ class AudioDataset(torch.utils.data.Dataset):
         phoneme_dict: dict,
         context_len: int=None,
         add_powers: int=0,
+        add_log:bool=False,
         show_label_stats: bool=False
     ):
         # load data from the given data directory
@@ -79,6 +80,7 @@ class AudioDataset(torch.utils.data.Dataset):
         
         # record the pow count if needed
         self.add_powers = int(add_powers) if add_powers >= 2 else 0
+        self.add_log = add_log
 
         # save the (preprocessed) data into 2 list attributes
         self.features = list()
@@ -165,7 +167,8 @@ class AudioDatasetInference(torch.utils.data.Dataset):
         self, 
         data_directory: str,
         context_len: int=None,
-        add_powers: int=0
+        add_powers: int=0,
+        add_log: bool=False
     ):
         # load data from the given data directory
         # ASSUMING that a 'transcript' and an 'mfcc' sub folder exist
@@ -173,6 +176,7 @@ class AudioDatasetInference(torch.utils.data.Dataset):
 
         # record the pow count if needed
         self.add_powers = add_powers if add_powers >= 2 else 0
+        self.add_log = add_log
 
         # save the (preprocessed) data into 2 list attributes
         self.features = list()
@@ -200,14 +204,9 @@ class AudioDatasetInference(torch.utils.data.Dataset):
                 mfcc = np.vstack((self.context_padding, mfcc, self.context_padding))
             # convert to torch tensor
             mfcc = torch.tensor(mfcc, dtype=torch.float32)
-            new_mfcc = mfcc.copy()
             # add powers to mfcc if specified
             if self.add_powers:
-                new_mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
-            # add log of mfcc if specified
-            if self.add_log:
-                new_mfcc = torch.hstack((new_mfcc, torch.log(mfcc)))
-            self.features.append(new_mfcc)
+                mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
 
         # entire len: count of [valid] frames, suggested by index pairs
         self.dataset_size = len(self.index_map)
@@ -219,7 +218,10 @@ class AudioDatasetInference(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         i, j = self.index_map[index]
-        return self.features[i][j: j + self.skip_interval].flatten()
+        return (
+            self.features[i][j: j + self.window_len],
+            self.labels[i][j]
+        )
             
             
     def update_context_len(self, new_context_len: int):

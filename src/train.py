@@ -94,10 +94,7 @@ def main(args):
     # build linear layer dimension list
     input_dim = (2 * configs['context_len'] + 1) * dev_dataset.num_features
     # adding powers when necessary
-    input_dim = (
-        input_dim * configs['model']['add_powers'] if configs['model']['add_powers'] >= 2
-        else input_dim
-    )
+    input_dim *= configs['model']['add_powers'] if configs['model']['add_powers'] >= 2 else 1
     linear_list = [input_dim, *configs['model']['linear']]
     
     # build model
@@ -235,29 +232,27 @@ def main(args):
             optimizer.zero_grad()
             x, y = x_and_y[0].to(device), x_and_y[1].to(device)
 
-            # using half precision
-            with autocast():
             # compute loss
-                y_pred = model(x)
-                loss = criterion(y_pred, y)
-                # compute derivatives
-                loss.backward()
-                # update parameters
-                optimizer.step()
+            y_pred = model(x)
+            loss = criterion(y_pred, y)
+            # compute derivatives
+            loss.backward()
+            # update parameters
+            optimizer.step()
 
-                # record per-batch stats
-                train_loss_this_batch = loss.detach().item()
-                train_count_this_batch = y.shape[0]
-                label_pred = y_pred.argmax(dim=1)
-                train_accu_this_batch = (label_pred == y).sum().item()
+            # record per-batch stats
+            train_loss_this_batch = loss.item()
+            train_count_this_batch = y.shape[0]
+            label_pred = y_pred.argmax(dim=1)
+            train_accu_this_batch = (label_pred == y).sum().item()
 
-                # update per-epoch stats
-                train_loss_this_epoch += train_loss_this_batch * train_count_this_batch
-                train_accu_this_epoch += train_accu_this_batch 
-                train_count += train_count_this_batch
+            # update per-epoch stats
+            train_loss_this_epoch += train_loss_this_batch * train_count_this_batch
+            train_accu_this_epoch += train_accu_this_batch 
+            train_count += train_count_this_batch
 
-                # obtain the avg stats for training in this batch
-                train_accu_this_batch /= train_count_this_batch
+            # obtain the avg stats for training in this batch
+            train_accu_this_batch /= train_count_this_batch
 
             # record the per-batch training loss and accuracy
             if UPLOAD_TO_WANDB:
@@ -281,18 +276,16 @@ def main(args):
                 model.eval()
                 model.is_training = False
                 with torch.no_grad():
-                    for xx_and_yy in dev_loader:
-                        xx, yy = xx_and_yy[0].to(device), xx_and_yy[1].to(device)
-                        # using half precision
-                        with autocast():
-                            yy_pred = model(xx)
-                            loss = criterion(yy_pred, yy)
-                            dev_loss_this_batch += loss.detach().item() * yy.shape[0]
-                            dev_accu_this_batch += (yy_pred.argmax(dim=1) == yy).sum().item()
-                            dev_count += yy.shape[0]
-                            # release occupied memory
-                            del xx_and_yy, xx, yy, yy_pred
-                            torch.cuda.empty_cache()
+                    for x_and_y in dev_loader:
+                        x, y = x_and_y[0].to(device), x_and_y[1].to(device)
+                        y_pred = model(x)
+                        loss = criterion(y_pred, y)
+                        dev_loss_this_batch += loss.item() * y.shape[0]
+                        dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
+                        dev_count += y.shape[0]
+                        # release occupied memory
+                        del x_and_y, x, y, y_pred
+                        torch.cuda.empty_cache()
 
                 # obtain avg metrics
                 dev_loss_this_batch /= dev_count
