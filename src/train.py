@@ -106,7 +106,8 @@ def main(args):
         activation_list=configs['model']['activation'],
         dropout_list=configs['model']['dropout'],
         batchnorm_list=configs['model']['batchnorm'],
-        noise_level=configs['training']['noise_level']
+        noise_level=configs['training']['noise_level'],
+        use_nll=configs['training']['noise_level']
     )
 
     # if there a model checkpoint exists: load from previous checkpoint
@@ -159,7 +160,10 @@ def main(args):
               f"from [{configs['training']['init_checkpoint']}]\n")
 
     # load loss function
-    criterion = torch.nn.CrossEntropyLoss()
+    criterion = (
+        torch.nn.NLLLoss() if configs['training']['use_nll']
+        else torch.nn.CrossEntropyLoss()
+    )
 
     # placeholder for the scheduler variable
     scheduler = (SCHEDULER_MAP.get(

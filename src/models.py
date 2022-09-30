@@ -26,7 +26,8 @@ class MLP(torch.nn.Module):
         activation_list: list,
         dropout_list: list,
         batchnorm_list: list,
-        noise_level: float=0.0
+        noise_level: float=0.0,
+        use_nll: bool=False
     ):
         super(MLP, self).__init__()
 
@@ -58,6 +59,10 @@ class MLP(torch.nn.Module):
                 self.linears, self.batchnorms, self.activations, self.dropouts
             ) for unit in pair if unit 
         ]
+
+        # add additional 
+        if use_nll:
+            layers.append(nn.LogSoftmax(dim=-1))
         
         # build the model accordingly
         self.streamline = nn.Sequential(*layers)
