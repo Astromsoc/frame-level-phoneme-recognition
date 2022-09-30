@@ -4,6 +4,7 @@
 
 import torch
 from torch import nn
+from torch.cuda.amp import autocast
 from itertools import zip_longest
 
 
@@ -77,6 +78,7 @@ class MLP(torch.nn.Module):
         self.noise_level = noise_level
         self.is_training = True
 
+    @autocast()
     def forward(self, x):
         # flatten the input
         x = x.view(x.size(0), -1)

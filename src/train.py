@@ -10,7 +10,7 @@ import pickle
 import argparse
 
 from src.utils import *
-from src.models import MLP
+from src.models import *
 
 
 
@@ -234,27 +234,30 @@ def main(args):
             # clear previous grads
             optimizer.zero_grad()
             x, y = x_and_y[0].to(device), x_and_y[1].to(device)
+
+            # using half precision
+            with autocast():
             # compute loss
-            y_pred = model(x)
-            loss = criterion(y_pred, y)
-            # compute derivatives
-            loss.backward()
-            # update parameters
-            optimizer.step()
+                y_pred = model(x)
+                loss = criterion(y_pred, y)
+                # compute derivatives
+                loss.backward()
+                # update parameters
+                optimizer.step()
 
-            # record per-batch stats
-            train_loss_this_batch = loss.item()
-            train_count_this_batch = y.shape[0]
-            label_pred = y_pred.argmax(dim=1)
-            train_accu_this_batch = (label_pred == y).sum().item()
+                # record per-batch stats
+                train_loss_this_batch = loss.item()
+                train_count_this_batch = y.shape[0]
+                label_pred = y_pred.argmax(dim=1)
+                train_accu_this_batch = (label_pred == y).sum().item()
 
-            # update per-epoch stats
-            train_loss_this_epoch += train_loss_this_batch * train_count_this_batch
-            train_accu_this_epoch += train_accu_this_batch 
-            train_count += train_count_this_batch
+                # update per-epoch stats
+                train_loss_this_epoch += train_loss_this_batch * train_count_this_batch
+                train_accu_this_epoch += train_accu_this_batch 
+                train_count += train_count_this_batch
 
-            # obtain the avg stats for training in this batch
-            train_accu_this_batch /= train_count_this_batch
+                # obtain the avg stats for training in this batch
+                train_accu_this_batch /= train_count_this_batch
 
             # record the per-batch training loss and accuracy
             if UPLOAD_TO_WANDB:
@@ -280,14 +283,17 @@ def main(args):
                 with torch.no_grad():
                     for x_and_y in dev_loader:
                         x, y = x_and_y[0].to(device), x_and_y[1].to(device)
-                        y_pred = model(x)
-                        loss = criterion(y_pred, y)
-                        dev_loss_this_batch += loss.item() * y.shape[0]
-                        dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
-                        dev_count += y.shape[0]
-                        # release occupied memory
-                        del x, y, y_pred, loss
-                        torch.cuda.empty_cache()
+
+                        # using half precision
+                        with autocast():
+                            y_pred = model(x)
+                            loss = criterion(y_pred, y)
+                            dev_loss_this_batch += loss.item() * y.shape[0]
+                            dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
+                            dev_count += y.shape[0]
+                            # release occupied memory
+                            del x, y, y_pred, loss
+                            torch.cuda.empty_cache()
 
                 # obtain avg metrics
                 dev_loss_this_batch /= dev_count
