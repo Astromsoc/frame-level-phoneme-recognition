@@ -120,7 +120,7 @@ class AudioDataset(torch.utils.data.Dataset):
                 mfcc = np.vstack((self.context_padding, mfcc, self.context_padding))
                 assert mfcc.shape[0] == 2 * self.context_len + transcript.shape[0]
             # convert to torch tensor
-            mfcc = torch.FloatTensor(mfcc, dtype=torch.float32)
+            mfcc = torch.Tensor(mfcc, dtype=torch.float32)
             # add powers to mfcc if specified
             if self.add_powers:
                 mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
