@@ -11,13 +11,13 @@ context_len: 25
 device_num_workers: 8
 
 model:
-  add_powers: 3
+  add_powers: 0
   first_layer_activation: "gelu"
   linear:
     - 2048
     - 2048
     - 2048
-    - 1024
+    - 2048
     - 1024
     - 1024
   activation:
@@ -28,12 +28,12 @@ model:
     - "gelu"
     - "gelu"
   dropout:
-    - 0.40
-    - 0.40
-    - 0.40
     - 0.30
     - 0.30
     - 0.30
+    - 0.25
+    - 0.25
+    - 0.25
   batchnorm:
     - true
     - true
@@ -51,9 +51,9 @@ optimizer:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
   name: "adamw"
   configs:
-    lr: 0.001
-    weight_decay: 0.05
-    amsgrad: true
+    lr: 0.0001
+    weight_decay: 0.01
+    # amsgrad: true
 
   # name: "sgd"
   # configs:
@@ -72,48 +72,47 @@ scheduler:
   # # COSINE_ANNEALING_WARM_RESTARTS
   # name: cosine_annealing_warm_restarts
   # configs:
-  #   T_0: 300
+  #   T_0: 3000
   #   T_mult: 2
-  #   eta_min: 1.0e-8
+  #   eta_min: 1.0e-7
 
-  # # EXPONENTIAL_LR
-  # name: exponential_lr
-  # configs:
-  #   gamma: 0.8
-
-  # MULTISTEP
-  name: multistep_lr
+  # EXPONENTIAL_LR
+  name: exponential_lr
   configs:
-    gamma: 0.5
-    milestones:
-      - 5
-      - 10
-      - 15
+    gamma: 0.9
+
+  # # MULTISTEP
+  # name: multistep_lr
+  # configs:
+  #   gamma: 0.5
+  #   milestones:
+  #     - 3
+  #     - 6
   
 
 training:
   seed: 11785
-  epochs: 20
-  batch_size: 5000
+  epochs: 10
+  use_nll: true
+  batch_size: 10000
   # how many evaluations per epoch
   eval_per_epoch: 3
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0.05
+  noise_level: 0
   # ** the following 3 flags can be commented **
   # checkpoint for the start of training -- if needed
-  init_checkpoint: "**your-checkpoint-here**"
+  init_checkpoint: "**your-checkpoint-file-here**"
   # whether to load optimizer [CURRENTLY FACING MULTI-DEVICE PROB]
   load_optimizer_checkpoint: false
   # update dropout rate if necessary
   new_dropout_rates:
-    - 0.40
-    - 0.40
-    - 0.40
-    - 0.30
-    - 0.30
-    - 0.30
+    - 0.25
+    - 0.25
+    - 0.25
+    - 0.20
+    - 0.20
+    - 0.20
 
-    
 inference:
-  batch_size: 5000
+  batch_size: 10000
