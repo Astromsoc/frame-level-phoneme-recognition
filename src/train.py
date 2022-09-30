@@ -107,7 +107,7 @@ def main(args):
         dropout_list=configs['model']['dropout'],
         batchnorm_list=configs['model']['batchnorm'],
         noise_level=configs['training']['noise_level'],
-        use_nll=configs['training']['noise_level']
+        use_nll=configs['training']['use_nll']
     )
 
     # if there a model checkpoint exists: load from previous checkpoint
