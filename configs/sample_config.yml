@@ -11,7 +11,8 @@ context_len: 25
 device_num_workers: 8
 
 model:
-  add_powers: 0
+  add_powers: 2
+  add_log: true
   first_layer_activation: "gelu"
   linear:
     - 2048
@@ -28,12 +29,12 @@ model:
     - "gelu"
     - "gelu"
   dropout:
-    - 0.30
-    - 0.30
-    - 0.30
     - 0.25
     - 0.25
     - 0.25
+    - 0.25
+    - 0.20
+    - 0.20
   batchnorm:
     - true
     - true
@@ -51,7 +52,7 @@ optimizer:
   # 'adam', 'adamw', 'adagrad', 'nadam', 'sgd'
   name: "adamw"
   configs:
-    lr: 0.0001
+    lr: 0.001
     weight_decay: 0.01
     # amsgrad: true
 
@@ -76,30 +77,31 @@ scheduler:
   #   T_mult: 2
   #   eta_min: 1.0e-7
 
-  # EXPONENTIAL_LR
-  name: exponential_lr
-  configs:
-    gamma: 0.9
-
-  # # MULTISTEP
-  # name: multistep_lr
+  # # EXPONENTIAL_LR
+  # name: exponential_lr
   # configs:
-  #   gamma: 0.5
-  #   milestones:
-  #     - 3
-  #     - 6
+  #   gamma: 0.9
+
+  # MULTISTEP
+  name: multistep_lr
+  configs:
+    gamma: 0.5
+    milestones:
+      - 8
+      - 12
+      - 16
   
 
 training:
   seed: 11785
-  epochs: 10
-  use_nll: true
-  batch_size: 10000
+  epochs: 20
+  use_nll: false
+  batch_size: 8196
   # how many evaluations per epoch
   eval_per_epoch: 3
   # whether to add noise for inputs during training
   # ** switch to false if unwanted, but don't comment **
-  noise_level: 0
+  noise_level: 0.001
   # ** the following 3 flags can be commented **
   # checkpoint for the start of training -- if needed
   init_checkpoint: "**your-checkpoint-file-here**"
@@ -115,4 +117,4 @@ training:
     - 0.20
 
 inference:
-  batch_size: 10000
+  batch_size: 8196

@@ -200,10 +200,14 @@ class AudioDatasetInference(torch.utils.data.Dataset):
                 mfcc = np.vstack((self.context_padding, mfcc, self.context_padding))
             # convert to torch tensor
             mfcc = torch.tensor(mfcc, dtype=torch.float32)
+            new_mfcc = mfcc.copy()
             # add powers to mfcc if specified
             if self.add_powers:
-                mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
-            self.features.append(mfcc)
+                new_mfcc = torch.hstack((mfcc, *(torch.pow(mfcc, i) for i in range(2, self.add_powers + 1))))
+            # add log of mfcc if specified
+            if self.add_log:
+                new_mfcc = torch.hstack((new_mfcc, torch.log(mfcc)))
+            self.features.append(new_mfcc)
 
         # entire len: count of [valid] frames, suggested by index pairs
         self.dataset_size = len(self.index_map)

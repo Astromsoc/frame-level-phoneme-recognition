@@ -246,7 +246,7 @@ def main(args):
                 optimizer.step()
 
                 # record per-batch stats
-                train_loss_this_batch = loss.item()
+                train_loss_this_batch = loss.detach().item()
                 train_count_this_batch = y.shape[0]
                 label_pred = y_pred.argmax(dim=1)
                 train_accu_this_batch = (label_pred == y).sum().item()
@@ -281,18 +281,17 @@ def main(args):
                 model.eval()
                 model.is_training = False
                 with torch.no_grad():
-                    for x_and_y in dev_loader:
-                        x, y = x_and_y[0].to(device), x_and_y[1].to(device)
-
+                    for xx_and_yy in dev_loader:
+                        xx, yy = xx_and_yy[0].to(device), xx_and_yy[1].to(device)
                         # using half precision
                         with autocast():
-                            y_pred = model(x)
-                            loss = criterion(y_pred, y)
-                            dev_loss_this_batch += loss.item() * y.shape[0]
-                            dev_accu_this_batch += (y_pred.argmax(dim=1) == y).sum().item()
-                            dev_count += y.shape[0]
+                            yy_pred = model(xx)
+                            loss = criterion(yy_pred, yy)
+                            dev_loss_this_batch += loss.detach().item() * yy.shape[0]
+                            dev_accu_this_batch += (yy_pred.argmax(dim=1) == yy).sum().item()
+                            dev_count += yy.shape[0]
                             # release occupied memory
-                            del x, y, y_pred, loss
+                            del xx_and_yy, xx, yy, yy_pred
                             torch.cuda.empty_cache()
 
                 # obtain avg metrics
@@ -348,8 +347,8 @@ def main(args):
         train_loss_history[epoch] = train_loss_this_epoch / train_count
         train_accu_history[epoch] = train_accu_this_epoch / train_count
 
+        # record the per_epoch stats
         if UPLOAD_TO_WANDB:
-            # record the per_epoch stats
             wandb.log({
                 'train_loss_per_epoch': train_loss_history[epoch],
                 'train_accu_per_epoch': train_accu_history[epoch]
